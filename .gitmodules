@@ -1,0 +1,3 @@
+[submodule "3rdparty/SSH.NET"]
+	path = 3rdparty/SSH.NET
+	url = https://github.com/darrenstarr/SSH.NET.git
