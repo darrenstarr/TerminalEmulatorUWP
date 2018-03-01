@@ -148,8 +148,8 @@ namespace TerminalEmulator
                         controller.SetCursorPosition(1,1);
                     else
                     {
-                        var row = Math.Min(sequence.Parameters[0], 1);
-                        var col = Math.Min(sequence.Parameters[1], 1);
+                        var row = Math.Max(sequence.Parameters[0], 1);
+                        var col = Math.Max(sequence.Parameters[1], 1);
                         controller.SetCursorPosition(col, row);
                     }
                 }
