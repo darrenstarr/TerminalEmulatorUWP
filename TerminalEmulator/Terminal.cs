@@ -18,6 +18,8 @@ namespace TerminalEmulator
 
         public EActiveBuffer ActiveBuffer { get; set; } = EActiveBuffer.Normal;
 
+        public bool Debugging = false;
+
         public TerminalBuffer Buffer
         {
             get
@@ -52,9 +54,42 @@ namespace TerminalEmulator
 
         public bool InvalidateView = false;
         public TerminalStream stream = new TerminalStream();
-        public byte[] QueueToSend { get; set; }
 
         public EventHandler<SendDataEventArgs> SendData;
+
+        public char GetVisibleChar(int x, int y)
+        {
+            if ((TopRow + y) >= Buffer.Count)
+                return ' ';
+
+            var line = Buffer[TopRow + y];
+            if (line.Count <= x)
+                return ' ';
+
+            return line[x].Char;
+        }
+
+        public string GetVisibleChars(int x, int y, int count)
+        {
+            string result = "";
+            for(var i=0; i<count; i++)
+                result += GetVisibleChar(x + i, y);
+
+            return result;
+        }
+
+        public string GetScreenText()
+        {
+            string result = "";
+            for (var y = 0; y < Rows; y++)
+            {
+                for (var x = 0; x < Columns; x++)
+                    result += GetVisibleChar(x, y);
+                if (y < (Rows - 1))
+                    result += '\n';
+            }
+            return result;
+        }
 
         public override void FullReset()
         {
@@ -77,17 +112,20 @@ namespace TerminalEmulator
 
         private void Log(string message)
         {
-            //System.Diagnostics.Debug.WriteLine("Terminal: " + message);
+            if(Debugging)
+                System.Diagnostics.Debug.WriteLine("Terminal: " + message);
         }
 
         private void LogController(string message)
         {
-            //System.Diagnostics.Debug.WriteLine("Controller: " + message);
+            if (Debugging)
+                System.Diagnostics.Debug.WriteLine("Controller: " + message);
         }
 
         private void LogExtreme(string message)
         {
-            //System.Diagnostics.Debug.WriteLine("Terminal: (c=" + CursorState.CurrentColumn.ToString() + ",r=" + CursorState.CurrentRow.ToString() + ")" + message);
+            if (Debugging)
+                System.Diagnostics.Debug.WriteLine("Terminal: (c=" + CursorState.CurrentColumn.ToString() + ",r=" + CursorState.CurrentRow.ToString() + ")" + message);
         }
 
         public override void SetCharacterSet(ECharacterSet characterSet)
@@ -213,6 +251,14 @@ namespace TerminalEmulator
             if (CursorState.CurrentColumn > 0)
             {
                 CursorState.CurrentColumn--;
+
+                if (Buffer.Count > TopRow + CursorState.CurrentRow)
+                {
+                    var line = Buffer[TopRow + CursorState.CurrentRow];
+                    if (line != null && line.Count > CursorState.CurrentColumn)
+                        line.RemoveAt(CursorState.CurrentColumn);
+                }
+
                 InvalidateView = true;
             }
         }
@@ -257,13 +303,44 @@ namespace TerminalEmulator
         {
             LogExtreme("PutChar(ch:'" + character + "'=" + ((int)character).ToString() + ")");
 
+            if(CursorState.InsertMode == EInsertReplaceMode.Insert)
+            {
+                while (Buffer.Count <= (TopRow + CursorState.CurrentRow))
+                    Buffer.Add(new TerminalLine());
+
+                var line = Buffer[TopRow + CursorState.CurrentRow];
+                while (line.Count < CursorState.CurrentColumn)
+                    line.Add(new TerminalCharacter());
+
+                line.Insert(CursorState.CurrentColumn, new TerminalCharacter());
+            }
+
             SetCharacter(CursorState.CurrentColumn, CursorState.CurrentRow, character, CursorState.Attribute);
             CursorState.CurrentColumn++;
 
-            if (CursorState.WordWrap && (CursorState.CurrentColumn >= Columns))
+            if (CursorState.WordWrap)
             {
-                CursorState.CurrentColumn = 0;
-                NewLine();
+                var line = Buffer[TopRow + CursorState.CurrentRow];
+                while (line.Count > Columns)
+                    line.RemoveAt(line.Count - 1);
+                //if(line.Count > Columns)
+                //{
+                //    while (Buffer.Count <= (TopRow + CursorState.CurrentRow + 1))
+                //        Buffer.Add(new TerminalLine());
+
+                //    var nextLine = Buffer[TopRow + CursorState.CurrentRow + 1];
+                //    while(line.Count > Columns)
+                //    {
+                //        nextLine.Insert(0, line.Last());
+                //        line.RemoveAt(line.Count - 1);
+                //    }
+                //}
+
+                if (CursorState.CurrentColumn >= Columns)
+                {
+                    CursorState.CurrentColumn = 0;
+                    NewLine();
+                }
             }
 
             InvalidateView = true;
@@ -430,7 +507,17 @@ namespace TerminalEmulator
                     currentLine.DoubleHeightBottom = false;
                     currentLine.DoubleWidth = true;
                     break;
+                case ECharacterSize.ScreenAlignmentTest:
+                    ScreenAlignmentTest();
+                    break;
             }
+        }
+
+        public void ScreenAlignmentTest()
+        {
+            for (var y = 0; y < VisibleRows; y++)
+                for (var x = 0; x < VisibleColumns; x++)
+                    SetCharacter(x, y, 'E', CursorState.Attribute);
         }
 
         public override void SaveCursor()
@@ -538,6 +625,7 @@ namespace TerminalEmulator
         public override void SetInsertReplaceMode(EInsertReplaceMode mode)
         {
             LogController("Unimplemented: SetInsertReplaceMode(mode:" + mode.ToString() + ")");
+            CursorState.InsertMode = mode;
         }
 
         public override void ClearScrollingRegion()
@@ -591,10 +679,14 @@ namespace TerminalEmulator
 
         public override void EraseLine()
         {
-            LogController("Unimplemented: EraseLine()");
+            LogController("EraseLine()");
 
-            for (var i = 0; i < VisibleColumns; i++)
+            for (var i = 0; i < Columns; i++)
                 SetCharacter(i, CursorState.CurrentRow, ' ', CursorState.Attribute);
+
+            var line = Buffer[TopRow + CursorState.CurrentRow];
+            while (line.Count > Columns)
+                line.RemoveAt(line.Count - 1);
 
             InvalidateView = true;
         }
@@ -603,8 +695,12 @@ namespace TerminalEmulator
         {
             LogController("EraseToEndOfLine()");
 
-            for (var i = CursorState.CurrentColumn; i < VisibleColumns; i++)
+            for (var i = CursorState.CurrentColumn; i < Columns; i++)
                 SetCharacter(i, CursorState.CurrentRow, ' ', CursorState.Attribute);
+
+            var line = Buffer[TopRow + CursorState.CurrentRow];
+            while (line.Count > Columns)
+                line.RemoveAt(line.Count - 1);
 
             InvalidateView = true;
         }
@@ -613,20 +709,53 @@ namespace TerminalEmulator
         {
             LogController("EraseToStartOfLine()");
 
-            for (var i = 0; i < VisibleColumns && i < CursorState.CurrentRow; i++)
+            for (var i = 0; i < Columns && i <= CursorState.CurrentColumn; i++)
                 SetCharacter(i, CursorState.CurrentRow, ' ', CursorState.Attribute);
+
+            var line = Buffer[TopRow + CursorState.CurrentRow];
+            while (line.Count > Columns)
+                line.RemoveAt(line.Count - 1);
 
             InvalidateView = true;
         }
 
         public override void EraseBelow()
         {
-            LogController("Unimplemented: EraseBelow()");
+            // TODO : Optimize
+            LogController("EraseBelow()");
+
+            for (var y = CursorState.CurrentRow + 1; y < VisibleRows; y++)
+            {
+                for (var x = 0; x < VisibleColumns; x++)
+                    SetCharacter(x, y, ' ', CursorState.Attribute);
+
+                var line = Buffer[TopRow + y];
+                while (line.Count > Columns)
+                    line.RemoveAt(line.Count - 1);
+            }
+
+
+            for (var x = CursorState.CurrentColumn; x < VisibleColumns; x++)
+                SetCharacter(x, CursorState.CurrentRow, ' ', CursorState.Attribute);
         }
 
         public override void EraseAbove()
         {
-            LogController("Unimplemented: EraseAbove()");
+            // TODO : Optimize
+            LogController("EraseAbove()");
+
+            for (var y = CursorState.CurrentRow - 1; y >= 0; y--)
+            {
+                for (var x = 0; x < VisibleColumns; x++)
+                    SetCharacter(x, y, ' ', CursorState.Attribute);
+
+                var line = Buffer[TopRow + y];
+                while (line.Count > Columns)
+                    line.RemoveAt(line.Count - 1);
+            }
+
+            for (var x = 0; x <= CursorState.CurrentColumn; x++)
+                SetCharacter(x, CursorState.CurrentRow, ' ', CursorState.Attribute);
         }
 
         public override void DeleteLines(int count)

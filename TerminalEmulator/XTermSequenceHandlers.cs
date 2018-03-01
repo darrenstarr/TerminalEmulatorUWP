@@ -85,6 +85,23 @@ namespace TerminalEmulator
             },
             new SequenceHandler
             {
+                Description = "Index (IND  is 0x84).",
+                SequenceType = SequenceHandler.ESequenceType.Escape,
+                CsiCommand = "D",
+                Handler = (sequence, controller) => controller.NewLine()
+            },
+            new SequenceHandler
+            {
+                Description = "Next Line (NEL  is 0x85).",
+                SequenceType = SequenceHandler.ESequenceType.Escape,
+                CsiCommand = "E",
+                Handler = (sequence, controller) => {
+                    controller.CarriageReturn();
+                    controller.NewLine();
+                }
+            },
+            new SequenceHandler
+            {
                 Description = "Tab Set",
                 SequenceType = SequenceHandler.ESequenceType.Escape,
                 CsiCommand = "H",
@@ -118,6 +135,24 @@ namespace TerminalEmulator
                 ExactParameterCountOrDefault = 1,
                 Param0 = new int [] { 0 },
                 Handler = (sequence, controller) => controller.SendDeviceAttributes()
+            },
+            new SequenceHandler
+            {
+                Description = "Horizontal and Vertical Position [row;column]",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "f",
+                ExactParameterCountOrDefault = 2,
+                Handler = (sequence, controller) =>
+                {
+                    if(sequence.Parameters.Count == 0)
+                        controller.SetCursorPosition(1,1);
+                    else
+                    {
+                        var row = Math.Min(sequence.Parameters[0], 1);
+                        var col = Math.Min(sequence.Parameters[1], 1);
+                        controller.SetCursorPosition(col, row);
+                    }
+                }
             },
             new SequenceHandler
             {

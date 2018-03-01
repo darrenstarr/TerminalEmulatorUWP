@@ -20,6 +20,7 @@ namespace TerminalEmulator
         public int ScrollTop = 0;
         public int ScrollBottom = -1;
         public bool OriginMode = false;
+        public EInsertReplaceMode InsertMode = EInsertReplaceMode.Insert;
 
         public TerminalCursorState Clone()
         {
@@ -34,7 +35,8 @@ namespace TerminalEmulator
                 ReverseVideoMode = ReverseVideoMode,
                 ScrollTop = ScrollTop,
                 ScrollBottom = ScrollBottom,
-                OriginMode = OriginMode
+                OriginMode = OriginMode,
+                InsertMode = InsertMode
             };
         }
     }

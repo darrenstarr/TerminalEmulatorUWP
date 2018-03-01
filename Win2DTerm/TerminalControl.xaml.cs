@@ -341,6 +341,9 @@ namespace Win2DTerm
                     break;
             }
 
+            if (controlPressed && e.Key == Windows.System.VirtualKey.F12)
+                Model.Debugging = !Model.Debugging;
+
             var code = Model.GetKeySequence((controlPressed ? "Ctrl+" : "") + (shiftPressed ? "Shift+" : "") + e.Key.ToString());
             if(code != null)
             {
