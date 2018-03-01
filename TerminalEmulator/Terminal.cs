@@ -98,7 +98,7 @@ namespace TerminalEmulator
         public override void TabSet()
         {
             var stop = CursorState.CurrentColumn + 1;
-            LogController("Unimplemented: TabSet() [cursorX=" + stop.ToString() + "]");
+            LogController("TabSet() [cursorX=" + stop.ToString() + "]");
 
             var tabStops = CursorState.TabStops;
             int index = 0;
@@ -114,7 +114,7 @@ namespace TerminalEmulator
         public override void Tab()
         {
             var current = CursorState.CurrentColumn + 1;
-            LogController("Unimplemented: Tab() [cursorX=" + current.ToString() + "]");
+            LogController("Tab() [cursorX=" + current.ToString() + "]");
 
             var tabStops = CursorState.TabStops;
             int index = 0;
@@ -129,7 +129,7 @@ namespace TerminalEmulator
 
         public override void ClearTabs()
         {
-            LogController("Unimplemented: ClearTabs()");
+            LogController("ClearTabs()");
 
             CursorState.TabStops.Clear();
         }
@@ -138,7 +138,7 @@ namespace TerminalEmulator
         {
             var stop = CursorState.CurrentColumn + 1;
 
-            LogController("Unimplemented: ClearTab() [cursorX=" + stop.ToString() + "]");
+            LogController("ClearTab() [cursorX=" + stop.ToString() + "]");
 
             var tabStops = CursorState.TabStops;
             int index = 0;
@@ -435,7 +435,7 @@ namespace TerminalEmulator
 
         public override void SaveCursor()
         {
-            LogController("Unimplemented: SaveCursor()");
+            LogController("SaveCursor()");
 
             SavedCursorState = CursorState.Clone();
 
@@ -443,7 +443,7 @@ namespace TerminalEmulator
         }
         public override void RestoreCursor()
         {
-            LogController("Unimplemented: RestoreCursor()");
+            LogController("RestoreCursor()");
 
             if (SavedCursorState != null)
                 CursorState = SavedCursorState.Clone();
@@ -542,7 +542,7 @@ namespace TerminalEmulator
 
         public override void ClearScrollingRegion()
         {
-            LogController("Unimplemented: ClearScrollingRegion()");
+            LogController("ClearScrollingRegion()");
             CursorState.ScrollTop = 0;
             CursorState.ScrollBottom = -1;
         }
@@ -575,7 +575,7 @@ namespace TerminalEmulator
 
         public override void SetScrollingRegion(int top, int bottom)
         {
-            LogController("Unimplemented: SetScrollingRegion(top:" + top.ToString() + ",bottom:" + bottom.ToString() + ")");
+            LogController("SetScrollingRegion(top:" + top.ToString() + ",bottom:" + bottom.ToString() + ")");
 
             if (top == 1 && bottom == VisibleRows)
                 ClearScrollingRegion();
@@ -631,6 +631,7 @@ namespace TerminalEmulator
 
         public override void DeleteLines(int count)
         {
+            // TODO : Verify it works with scroll range
             LogController("Unimplemented: DeleteLines(count:" + count.ToString() + ")");
 
             if ((CursorState.CurrentRow + TopRow) >= Buffer.Count)
@@ -644,6 +645,7 @@ namespace TerminalEmulator
 
         public override void EraseAll()
         {
+            // TODO : Verify it works with scroll range
             LogController("Unimplemented: EraseAll()");
             Buffer.Clear();
             SetCursorPosition(1, 1);
@@ -670,7 +672,8 @@ namespace TerminalEmulator
 
         public override void Enable132ColumnMode(bool enable)
         {
-            LogController("Unimplemented: Enable132ColumnMode(enable:" + enable.ToString() + ")");
+            // TODO : Consider removeing column setting and instead make host resize the terminal
+            LogController("Enable132ColumnMode(enable:" + enable.ToString() + ")");
             Columns = enable ? 132 : 80;
         }
 
@@ -681,7 +684,7 @@ namespace TerminalEmulator
 
         public override void EnableReverseVideoMode(bool enable)
         {
-            LogController("Unimplemented: EnableReverseVideoMode(enable:" + enable.ToString() + ")");
+            LogController("EnableReverseVideoMode(enable:" + enable.ToString() + ")");
             CursorState.ReverseVideoMode = enable;
 
             InvalidateView = true;
@@ -689,13 +692,13 @@ namespace TerminalEmulator
 
         public override void EnableOriginMode(bool enable)
         {
-            LogController("Unimplemented: EnableOriginMode(enable:" + enable.ToString() + ")");
+            LogController("EnableOriginMode(enable:" + enable.ToString() + ")");
             CursorState.OriginMode = enable;
         }
 
         public override void EnableWrapAroundMode(bool enable)
         {
-            LogController("Unimplemented: EnableWrapAroundMode(enable:" + enable.ToString() + ")");
+            LogController("EnableWrapAroundMode(enable:" + enable.ToString() + ")");
             CursorState.WordWrap = enable;
         }
 
@@ -720,7 +723,7 @@ namespace TerminalEmulator
 
         public override void SendDeviceAttributes()
         {
-            LogController("Unimplemented: SendDeviceAttributes()");
+            LogController("SendDeviceAttributes()");
             SendData.Invoke(this, new SendDataEventArgs { Data = VT102DeviceAttributes });
         }
 
