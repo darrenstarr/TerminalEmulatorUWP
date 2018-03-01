@@ -25,31 +25,6 @@ namespace Win2DTerm
         public MainPage()
         {
             InitializeComponent();
-
-            foreach (System.Text.EncodingInfo ei in System.Text.Encoding.GetEncodings())
-            {
-                System.Text.Encoding e = ei.GetEncoding();
-
-                System.Diagnostics.Debug.Write(ei.CodePage.ToString());
-                if (ei.CodePage == e.CodePage)
-                    System.Diagnostics.Debug.Write("    ");
-                else
-                    System.Diagnostics.Debug.Write("*** ");
-
-                System.Diagnostics.Debug.Write("{0,-25}", ei.Name);
-                if (ei.CodePage == e.CodePage)
-                    System.Diagnostics.Debug.Write("    ");
-                else
-                    System.Diagnostics.Debug.Write("*** ");
-
-                System.Diagnostics.Debug.Write("{0,-25}", ei.DisplayName);
-                if (ei.CodePage == e.CodePage)
-                    System.Diagnostics.Debug.Write("    ");
-                else
-                    System.Diagnostics.Debug.Write("*** ");
-
-                System.Diagnostics.Debug.WriteLine("");
-            }
         }
 
         private void OnHostnameTapped(object sender, TappedRoutedEventArgs e)
@@ -59,7 +34,7 @@ namespace Win2DTerm
 
         private void ConnectTapped(object sender, TappedRoutedEventArgs e)
         {
-            terminal.ConnectToSsh(Hostname.Text, Convert.ToInt32(Port.Text), Username.Text, Password.Text);
+            terminal.ConnectToSsh(Hostname.Text, Convert.ToInt32(Port.Text), Username.Text, Password.Password);
         }
     }
 }

@@ -8,7 +8,7 @@
     mc:Ignorable="d">
 
     <Page.TopAppBar>
-        <CommandBar Background="Transparent" IsOpen="False" DefaultLabelPosition="Right" Margin="0,0,9,0">
+        <CommandBar Background="Transparent" IsOpen="False" DefaultLabelPosition="Right" Margin="0,0,9,0" IsTabStop="False">
             <CommandBar.SecondaryCommands>
                 <AppBarButton Icon="MapDrive" Label="Connect" Tapped="ConnectTapped"/>
             </CommandBar.SecondaryCommands>
@@ -42,10 +42,10 @@
                     </TextBlock>
 
                     <TextBlock Text="Password:" Margin="12,14" />
-                    <TextBlock Text="{x:Bind Password.Text, Mode=OneWay}" Tapped="OnHostnameTapped" Margin="0,14">
+                    <TextBlock Text="******" Tapped="OnHostnameTapped" Margin="0,14">
                         <FlyoutBase.AttachedFlyout>
                             <Flyout>
-                                <TextBox x:Name="Password" Text="Minions12345"/>
+                                <PasswordBox x:Name="Password" Password="Minions12345"/>
                             </Flyout>
                         </FlyoutBase.AttachedFlyout>
                     </TextBlock>

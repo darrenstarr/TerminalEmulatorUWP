@@ -4,6 +4,7 @@ using Microsoft.Graphics.Canvas.UI.Xaml;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 using System;
+using System.Numerics;
 using System.Threading.Tasks;
 using TerminalEmulator;
 using Windows.Foundation;
@@ -22,10 +23,22 @@ namespace Win2DTerm
     public sealed partial class TerminalControl : UserControl
     {
         public Terminal Model { get; set; } = new Terminal();
+        public int ViewTop { get; set; } = 0;
 
         public TerminalControl()
         {
             InitializeComponent();
+
+            Model.SendData += OnSendData;
+        }
+
+        private void OnSendData(object sender, SendDataEventArgs e)
+        {
+            Task.Run(() =>
+            {
+                _stream.Write(e.Data, 0, e.Data.Length);
+                _stream.Flush();
+            });
         }
 
         private void CoreWindow_CharacterReceived(CoreWindow sender, CharacterReceivedEventArgs args)
@@ -39,7 +52,7 @@ namespace Win2DTerm
             _stream.Write(toSend, 0, toSend.Length);
             _stream.Flush();
 
-            System.Diagnostics.Debug.WriteLine(ch.ToString());
+            //System.Diagnostics.Debug.WriteLine(ch.ToString());
             args.Handled = true;
         }
 
@@ -92,26 +105,19 @@ namespace Win2DTerm
 
         private void _OnDataReceived(object sender, ShellDataEventArgs e)
         {
-            byte[] toSend;
-
-            System.Diagnostics.Debug.WriteLine(e.Data.Length.ToString() + " received");
+            //System.Diagnostics.Debug.WriteLine(e.Data.Length.ToString() + " received");
 
             lock (Model)
             {
-                if (Model.Push(e.Data))
-                    canvas.Invalidate();
-                else
-                    System.Diagnostics.Debug.WriteLine("Nothing processed");
-                toSend = Model.GetSendQueue();
-            }
+                int oldTopRow = Model.TopRow;
 
-            if(toSend != null)
-            {
-                Task.Run(() =>
+                if (Model.Push(e.Data))
                 {
-                    _stream.Write(toSend, 0, toSend.Length);
-                    _stream.Flush();
-                });
+                    if (oldTopRow != Model.TopRow && oldTopRow >= ViewTop)
+                        ViewTop = Model.TopRow;
+
+                    canvas.Invalidate();
+                }
             }
         }
 
@@ -127,48 +133,96 @@ namespace Win2DTerm
                     FontWeight = canvas.FontWeight,
                     WordWrapping = CanvasWordWrapping.NoWrap
                 };
-            CanvasTextFormat boldFormat =
+
+            CanvasTextFormat lineNumberFormat =
                 new CanvasTextFormat
                 {
-                    FontSize = Convert.ToSingle(canvas.FontSize),
+                    FontSize = Convert.ToSingle(canvas.FontSize/2),
                     FontFamily = canvas.FontFamily.Source,
-                    FontWeight = Windows.UI.Text.FontWeights.Bold,
+                    FontWeight = canvas.FontWeight,
                     WordWrapping = CanvasWordWrapping.NoWrap
                 };
 
             ProcessTextFormat(drawingSession, format);
 
-            drawingSession.FillRectangle(new Rect(0, 0, canvas.RenderSize.Width, canvas.RenderSize.Height), Colors.Black);
+            drawingSession.FillRectangle(new Rect(0, 0, canvas.RenderSize.Width, canvas.RenderSize.Height), GetBackgroundColor(Model.CursorState.Attribute));
 
             lock (Model)
             {
-                float verticalOffset = 0;
-                int row = 0;
-                if (Model.Buffer.Count > Rows)
-                {
-                    row = Model.Buffer.Count - Rows;
-                    verticalOffset = (Rows - Model.Buffer.Count) * (float)CharacterHeight;
-                }
+                int row = ViewTop;
+                float verticalOffset = -row * (float)CharacterHeight;
 
-                while(row < Model.Buffer.Count)
+                var defaultTransform = drawingSession.Transform;
+                while (row < Model.Buffer.Count && (row < ViewTop + Rows))
                 {
                     var line = Model.Buffer[row];
                     int column = 0;
+
+                    drawingSession.Transform = Matrix3x2.CreateScale(
+                        (float)(line.DoubleWidth ? 2.0 : 1.0),
+                        (float)(line.DoubleHeightBottom | line.DoubleHeightTop ? 2.0 : 1.0)
+                    );
+
                     foreach (var character in line)
                     {
-                        var rect = new Rect((double)column * CharacterWidth, (double)row * CharacterHeight + verticalOffset, CharacterWidth + 0.9, CharacterHeight + 0.9);
 
-                        var textLayout = new CanvasTextLayout(drawingSession, character.Char.ToString(), (character.Attribute.Bright ? boldFormat : format), 0.0f, 0.0f);
+                        var rect = new Rect(
+                            (double)column * CharacterWidth,
+                            (double)((row - (line.DoubleHeightBottom ? 1 : 0)) * CharacterHeight  + verticalOffset) * (line.DoubleHeightBottom | line.DoubleHeightTop ? 0.5 : 1.0),
+                            CharacterWidth + 0.9, 
+                            CharacterHeight + 0.9
+                        );
+
+                        var textLayout = new CanvasTextLayout(drawingSession, character.Char.ToString(), format, 0.0f, 0.0f);
                         var backgroundColor = GetBackgroundColor(character.Attribute);
                         var foregroundColor = GetForegroundColor(character.Attribute);
                         drawingSession.FillRectangle(rect, backgroundColor);
-                        //drawingSession.DrawRectangle(rect, backgroundColor);
-                        drawingSession.DrawTextLayout(textLayout, (float)column * (float)CharacterWidth, (float)row * (float)CharacterHeight + verticalOffset, foregroundColor);
+
+                        drawingSession.DrawTextLayout(
+                            textLayout,
+                            (float)rect.Left,
+                            (float)rect.Top,
+                            foregroundColor
+                        );
+
+                        if (character.Attribute.Underscore)
+                        {
+                            drawingSession.DrawLine(
+                                new Vector2(
+                                    (float)rect.Left,
+                                    (float)rect.Bottom
+                                ),
+                                new Vector2(
+                                    (float)rect.Right,
+                                    (float)rect.Bottom
+                                ),
+                                foregroundColor
+                            );
+                        }
+
                         column++;
                     }
                     row++;
                 }
+                drawingSession.Transform = defaultTransform;
+
+                var mouseY = Model.TopRow - ViewTop + Model.CursorState.CurrentRow;
+                var cursorRect = new Rect(
+                    Model.CursorState.CurrentColumn * CharacterWidth, mouseY 
+                    * CharacterHeight, 
+                    CharacterWidth + 0.9, 
+                    CharacterHeight + 0.9
+                );
+
+                drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute));
             }
+
+            //for(var i=0; i<Rows; i++)
+            //{
+            //    string s = i.ToString();
+            //    var textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
+            //    drawingSession.DrawTextLayout(textLayout, 0, (float)i * (float)CharacterHeight, Colors.Yellow);
+            //}
         }
 
         private static Color[] AttributeColors =
@@ -213,14 +267,27 @@ namespace Win2DTerm
 
         private Color GetBackgroundColor(TerminalAttribute attribute)
         {
-            if (attribute.Standout)
-                return AttributeColors[(int)attribute.BackgroundColor + 8];
+            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse;
+
+            if (flip)
+            {
+                if (attribute.Bright)
+                    return AttributeColors[(int)attribute.ForegroundColor + 8];
+
+                return AttributeColors[(int)attribute.ForegroundColor];
+            }
+
             return AttributeColors[(int)attribute.BackgroundColor];
         }
 
         private Color GetForegroundColor(TerminalAttribute attribute)
         {
-            if (attribute.Standout)
+            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse;
+
+            if (flip)
+                return AttributeColors[(int)attribute.BackgroundColor];
+
+            if (attribute.Bright)
                 return AttributeColors[(int)attribute.ForegroundColor + 8];
             return AttributeColors[(int)attribute.ForegroundColor];
         }
@@ -241,19 +308,22 @@ namespace Win2DTerm
                 Columns = columns;
                 Rows = rows;
                 ResizeTerminal();
+
+                if(_stream != null && _stream.CanWrite)
+                    _stream.SendWindowChangeRequest((uint)columns, (uint)rows, (uint)800, (uint)600);
             }
         }
 
         private void ResizeTerminal()
         {
-            System.Diagnostics.Debug.WriteLine("ResizeTerminal()");
-            System.Diagnostics.Debug.WriteLine("  Character size " + CharacterWidth.ToString() + "," + CharacterHeight.ToString());
-            System.Diagnostics.Debug.WriteLine("  Terminal size " + Columns.ToString() + "," + Rows.ToString());
+            //System.Diagnostics.Debug.WriteLine("ResizeTerminal()");
+            //System.Diagnostics.Debug.WriteLine("  Character size " + CharacterWidth.ToString() + "," + CharacterHeight.ToString());
+            //System.Diagnostics.Debug.WriteLine("  Terminal size " + Columns.ToString() + "," + Rows.ToString());
 
             Model.ResizeView(Columns, Rows);
         }
 
-        private void canvas_KeyDown(object sender, KeyRoutedEventArgs e)
+        private void Canvas_KeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (!Connected)
                 return;
@@ -279,9 +349,17 @@ namespace Win2DTerm
                     _stream.Write(code, 0, code.Length);
                     _stream.Flush();
                 });
+
+                e.Handled = true;
+
+                if(ViewTop != Model.TopRow)
+                {
+                    Model.TopRow = ViewTop;
+                    canvas.Invalidate();
+                }
             }
 
-            System.Diagnostics.Debug.WriteLine(e.Key.ToString() + ",S" + (shiftPressed ? "1" : "0") + ",C" + (controlPressed ? "1" : "0"));
+            //System.Diagnostics.Debug.WriteLine(e.Key.ToString() + ",S" + (shiftPressed ? "1" : "0") + ",C" + (controlPressed ? "1" : "0"));
         }
 
         private void Grid_Tapped(object sender, TappedRoutedEventArgs e)
@@ -297,6 +375,22 @@ namespace Win2DTerm
         private void UserControl_LostFocus(object sender, RoutedEventArgs e)
         {
             Window.Current.CoreWindow.CharacterReceived -= CoreWindow_CharacterReceived;
+        }
+
+        private void WheelChanged(object sender, PointerRoutedEventArgs e)
+        {
+            var pointer = e.GetCurrentPoint(canvas);
+
+            int oldViewTop = ViewTop;
+
+            ViewTop -= pointer.Properties.MouseWheelDelta / 40;
+            if (ViewTop < 0)
+                ViewTop = 0;
+            else if (ViewTop > Model.TopRow)
+                ViewTop = Model.TopRow;
+
+            if (oldViewTop != ViewTop)
+                canvas.Invalidate();
         }
     }
 }

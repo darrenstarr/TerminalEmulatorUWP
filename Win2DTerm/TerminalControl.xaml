@@ -11,12 +11,12 @@
     d:DesignWidth="400"
     Unloaded="UserControl_Unloaded"
     IsTabStop="True"
-    KeyDown="canvas_KeyDown"
+    KeyDown="Canvas_KeyDown"
     GotFocus="UserControl_GotFocus"
     LostFocus="UserControl_LostFocus"
     >
 
     <Grid>
-        <canvas:CanvasControl x:Name="canvas" Draw="OnCanvasDraw" FontFamily="Consolas" Background="Black" Tapped="Grid_Tapped" />
+        <canvas:CanvasControl x:Name="canvas" Draw="OnCanvasDraw" FontFamily="Consolas" Background="Black" Tapped="Grid_Tapped" PointerWheelChanged="WheelChanged" />
     </Grid>
 </UserControl>
