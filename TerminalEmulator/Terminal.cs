@@ -252,12 +252,12 @@ namespace TerminalEmulator
             {
                 CursorState.CurrentColumn--;
 
-                if (Buffer.Count > TopRow + CursorState.CurrentRow)
-                {
-                    var line = Buffer[TopRow + CursorState.CurrentRow];
-                    if (line != null && line.Count > CursorState.CurrentColumn)
-                        line.RemoveAt(CursorState.CurrentColumn);
-                }
+                //if (Buffer.Count > TopRow + CursorState.CurrentRow)
+                //{
+                //    var line = Buffer[TopRow + CursorState.CurrentRow];
+                //    if (line != null && line.Count > CursorState.CurrentColumn)
+                //        line.RemoveAt(CursorState.CurrentColumn);
+                //}
 
                 InvalidateView = true;
             }

@@ -683,7 +683,7 @@ namespace TerminalEmulator
                 ExactParameterCountOrDefault = 1,
                 Handler = (sequence, controller) =>
                 {
-                    controller.MoveCursorRelative(0, -((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0]));
+                    controller.MoveCursorRelative(0, -((sequence.Parameters == null || sequence.Parameters.Count == 0 || sequence.Parameters[0] == 0) ? 1 : sequence.Parameters[0]));
                 }
             },
             new SequenceHandler
@@ -694,7 +694,7 @@ namespace TerminalEmulator
                 ExactParameterCountOrDefault = 1,
                 Handler = (sequence, controller) =>
                 {
-                    controller.MoveCursorRelative(0, ((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0]));
+                    controller.MoveCursorRelative(0, ((sequence.Parameters == null || sequence.Parameters.Count == 0 || sequence.Parameters[0] == 0) ? 1 : sequence.Parameters[0]));
                 }
             },
             new SequenceHandler
@@ -705,7 +705,7 @@ namespace TerminalEmulator
                 ExactParameterCountOrDefault = 1,
                 Handler = (sequence, controller) =>
                 {
-                    controller.MoveCursorRelative(((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0]), 0);
+                    controller.MoveCursorRelative(((sequence.Parameters == null || sequence.Parameters.Count == 0 || sequence.Parameters[0] == 0) ? 1 : sequence.Parameters[0]), 0);
                 }
             },
             new SequenceHandler
@@ -716,7 +716,7 @@ namespace TerminalEmulator
                 ExactParameterCountOrDefault = 1,
                 Handler = (sequence, controller) =>
                 {
-                    controller.MoveCursorRelative(-((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0]), 0);
+                    controller.MoveCursorRelative(-((sequence.Parameters == null || sequence.Parameters.Count == 0 || sequence.Parameters[0] == 0) ? 1 : sequence.Parameters[0]), 0);
                 }
             },
             new SequenceHandler

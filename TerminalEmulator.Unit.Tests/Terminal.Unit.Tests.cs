@@ -19,6 +19,12 @@ namespace TerminalEmulator.Unit.Tests
             PushToTerminal(t, "12345\u001b[D\u001b[D\b0");
 
             Assert.Equal("12045 ", t.GetVisibleChars(0, 0, 6));
+
+            t = new Terminal();
+            t.ResizeView(200, 100);
+            PushToTerminal(t, "12345\u001b[D\u001b[D\b");
+
+            Assert.Equal("12345 ", t.GetVisibleChars(0, 0, 6));
         }
 
         [Fact]
@@ -50,6 +56,162 @@ namespace TerminalEmulator.Unit.Tests
             Assert.Equal(ExpectedScreenAlignment, t.GetScreenText());
         }
 
+        public readonly string ExpectedEraseAll =
+            "     \n" +
+            "     \n" +
+            "     \n" +
+            "     \n" +
+            "     ";
 
+        [Fact]
+        public void EraseScreen()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            t.ScreenAlignmentTest();
+            t.EraseAll();
+
+            Assert.Equal(ExpectedEraseAll, t.GetScreenText());
+
+            t.ScreenAlignmentTest();
+            PushToTerminal(t, "\u001B#8\u001B[2J");
+            Assert.Equal(ExpectedEraseAll, t.GetScreenText());
+        }
+
+        public readonly string ExpectedEraseBelow =
+            "EEEEE\n" +
+            "EEE  \n" +
+            "     \n" +
+            "     \n" +
+            "     ";
+
+        [Fact]
+        public void EraseBelow()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            t.ScreenAlignmentTest();
+            t.SetCursorPosition(4, 2);
+            t.EraseBelow();
+
+            Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
+
+            t.ScreenAlignmentTest();
+            PushToTerminal(t, "\u001B#8\u001B[J");
+            Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
+
+            t.ScreenAlignmentTest();
+            PushToTerminal(t, "\u001B#8\u001B[;J");
+            Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
+
+            t.ScreenAlignmentTest();
+            PushToTerminal(t, "\u001B#8\u001B[0J");
+            Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
+        }
+
+        public readonly string ExpectedEraseAbove =
+            "     \n" +
+            "    E\n" +
+            "EEEEE\n" +
+            "EEEEE\n" +
+            "EEEEE";
+
+        [Fact]
+        public void EraseAbove()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            t.ScreenAlignmentTest();
+            t.SetCursorPosition(4, 2);
+            t.EraseAbove();
+
+            Assert.Equal(ExpectedEraseAbove, t.GetScreenText());
+
+            t.ScreenAlignmentTest();
+            PushToTerminal(t, "\u001B#8\u001B[1J");
+            Assert.Equal(ExpectedEraseAbove, t.GetScreenText());
+        }
+
+        public readonly string ExpectedScrollFull =
+            "BBBBB\n" +
+            "CCCCC\n" +
+            "DDDDD\n" +
+            "EEEEE\n" +
+            "FFFF ";
+
+        [Fact]
+        public void ScrollFullDown()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            t.ScreenAlignmentTest();
+
+            PushToTerminal(t, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF");
+            Assert.Equal(ExpectedScrollFull, t.GetScreenText());
+        }
+
+        public readonly string ExpectedRIND =
+            "BBBBG\n" +
+            "GGCCC\n" +
+            "DDDDD\n" +
+            "EEEEE\n" +
+            "FFFF ";
+
+        [Fact]
+        public void ReverseIndex()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            t.ScreenAlignmentTest();
+
+            PushToTerminal(t, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF\u001BM\u001BM\u001BM\u001BMGGG");
+            Assert.Equal(ExpectedRIND, t.GetScreenText());
+        }
+
+        public readonly string Expected80ColumnMode =
+            "01234567890123456789012345678901234567890123456789012345678901234567890123456789\n" +
+            "01234567890123456789012345678901234567890123456789012345678901234567890123456789\n" +
+            "                                                                                \n" +
+            "                                                                                \n" +
+            "                                                                                ";
+
+        [Fact]
+        public void EightyColumnMode()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            PushToTerminal(t, "\u001b[?3l");
+
+            Assert.Equal(80, t.Columns);
+            Assert.Equal(5, t.Rows);
+
+            for(var i=0; i<16; i++)
+                PushToTerminal(t, "0123456789");
+
+            Assert.Equal(Expected80ColumnMode, t.GetScreenText());
+        }
+
+        public readonly string Expected132ColumnMode =
+            "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901\n" +
+            "2345678901234567890123456789                                                                                                        \n" +
+            "                                                                                                                                    \n" +
+            "                                                                                                                                    \n" +
+            "                                                                                                                                    ";
+
+        [Fact]
+        public void OneThirtyTwoColumnMode()
+        {
+            var t = new Terminal();
+            t.ResizeView(5, 5);
+            PushToTerminal(t, "\u001b[?3h");
+
+            Assert.Equal(132, t.Columns);
+            Assert.Equal(5, t.Rows);
+
+            for (var i = 0; i < 16; i++)
+                PushToTerminal(t, "0123456789");
+
+            Assert.Equal(Expected132ColumnMode, t.GetScreenText());
+        }
     }
 }
