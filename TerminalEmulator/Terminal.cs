@@ -1030,6 +1030,10 @@ namespace TerminalEmulator
             return Consume(data);
         }
 
+        private static byte[] ESC(string command)
+        {
+            return (new byte[] { 0x1B }).Concat(Encoding.ASCII.GetBytes(command)).ToArray();
+        }
         private static byte [] CSI(string command)
         {
             return (new byte[] { 0x1B, (byte)'[' }).Concat(Encoding.ASCII.GetBytes(command)).ToArray();
@@ -1061,10 +1065,10 @@ namespace TerminalEmulator
             { "F11",            new KeyboardTranslation { NormalMode = CSI("23~"),  ApplicationMode = CSI("23~")  } },
             { "F12",            new KeyboardTranslation { NormalMode = CSI("24~"),  ApplicationMode = CSI("24~")  } },
 
-            { "Up",             new KeyboardTranslation { NormalMode = CSI("A"),    ApplicationMode = CSI("OA")    } },
-            { "Down",           new KeyboardTranslation { NormalMode = CSI("B"),    ApplicationMode = CSI("OB")    } },
-            { "Right",          new KeyboardTranslation { NormalMode = CSI("C"),    ApplicationMode = CSI("OC")    } },
-            { "Left",           new KeyboardTranslation { NormalMode = CSI("D"),    ApplicationMode = CSI("OD")    } },
+            { "Up",             new KeyboardTranslation { NormalMode = CSI("A"),    ApplicationMode = ESC("OA")    } },
+            { "Down",           new KeyboardTranslation { NormalMode = CSI("B"),    ApplicationMode = ESC("OB")    } },
+            { "Right",          new KeyboardTranslation { NormalMode = CSI("C"),    ApplicationMode = ESC("OC")    } },
+            { "Left",           new KeyboardTranslation { NormalMode = CSI("D"),    ApplicationMode = ESC("OD")    } },
 
             { "Home",           new KeyboardTranslation { NormalMode = CSI("1~"),   ApplicationMode = CSI("1~")    } },
             { "Insert",         new KeyboardTranslation { NormalMode = CSI("2~"),   ApplicationMode = CSI("2~")    } },
