@@ -37,6 +37,12 @@ namespace TerminalEmulator
                         case '\u000E':
                             controller.ShiftOut();
                             break;
+                        case '\u000B':
+                            controller.VerticalTab();
+                            break;
+                        case '\f':
+                            controller.FormFeed();
+                            break;
                         default:
                             controller.PutChar(characterSequence.Character);
                             break;
@@ -126,6 +132,14 @@ namespace TerminalEmulator
                 SequenceType = SequenceHandler.ESequenceType.OSC,
                 Param0 = new int [] { 0, 1, 2, 21 },
                 Handler = (sequence, controller) => controller.SetWindowTitle(sequence.Command)
+            },
+            new SequenceHandler
+            {
+                Description = "Insert Ps (Blank) Character(s) (default = 1)",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "@",
+                ExactParameterCountOrDefault = 1,
+                Handler = (sequence, controller) => controller.InsertBlanks(((sequence.Parameters == null || sequence.Parameters.Count == 0 || sequence.Parameters[0] == 0) ? 1 : sequence.Parameters[0]))
             },
             new SequenceHandler
             {
@@ -807,6 +821,20 @@ namespace TerminalEmulator
                     controller.DeleteCharacter((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0]);
                 }
             },
+            new SequenceHandler
+            {
+                Description = "Select default character set.  That is ISO 8859-1",
+                SequenceType = SequenceHandler.ESequenceType.Unicode,
+                CsiCommand = "@",
+                Handler = (sequence, controller) => controller.SetLatin1()
+            },
+            new SequenceHandler
+            {
+                Description = "Select UTF-8 character set (ISO 2022).",
+                SequenceType = SequenceHandler.ESequenceType.Unicode,
+                CsiCommand = "G",
+                Handler = (sequence, controller) => controller.SetUTF8()
+            },
         };
 
         public static void ProcessSequence(TerminalSequence sequence, TerminalController controller)
@@ -909,6 +937,23 @@ namespace TerminalEmulator
                 var handler = Handlers.Where(x => x.SequenceType == SequenceHandler.ESequenceType.CharacterSize).SingleOrDefault();
                 if (handler == null)
                     throw new EscapeSequenceException("There are no sequence handlers configured for type CharacterSizeSequence " + sequence.ToString(), sequence);
+
+                handler.Handler(sequence, controller);
+
+                return;
+            }
+
+            if (sequence is UnicodeSequence)
+            {
+                var handler = Handlers
+                    .Where(x =>
+                        x.SequenceType == SequenceHandler.ESequenceType.Unicode &&
+                        x.CsiCommand == sequence.Command
+                    )
+                    .SingleOrDefault();
+
+                if (handler == null)
+                    throw new EscapeSequenceException("There are no sequence handlers configured for type UnicodeSequence " + sequence.ToString(), sequence);
 
                 handler.Handler(sequence, controller);
 

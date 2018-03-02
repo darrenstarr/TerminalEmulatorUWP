@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace TerminalEmulator.StreamParser
+﻿namespace TerminalEmulator.StreamParser
 {
     public class CharacterSizeSequence : TerminalSequence
     {

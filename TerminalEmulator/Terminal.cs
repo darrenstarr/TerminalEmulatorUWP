@@ -18,7 +18,8 @@ namespace TerminalEmulator
 
         public EActiveBuffer ActiveBuffer { get; set; } = EActiveBuffer.Normal;
 
-        public bool Debugging = false;
+        public bool Debugging { get; set; }
+        public bool SequenceDebugging { get; set; }
 
         public TerminalBuffer Buffer
         {
@@ -161,8 +162,6 @@ namespace TerminalEmulator
 
             if (index < tabStops.Count)
                 SetCursorPosition(tabStops[index], CursorState.CurrentRow + 1);
-
-            // TODO : If past the end of the list, should it tab to the next line's first tab or first char if no tab is present?
         }
 
         public override void ClearTabs()
@@ -222,6 +221,18 @@ namespace TerminalEmulator
             InvalidateView = true;
         }
 
+        public override void VerticalTab()
+        {
+            LogController("VerticalTab()");
+            MoveCursorRelative(0, 1);
+        }
+
+        public override void FormFeed()
+        {
+            LogController("FormFeed()");
+            MoveCursorRelative(0, 1);
+        }
+
         public override void ReverseIndex()
         {
             LogController("ReverseIndex()");
@@ -251,13 +262,6 @@ namespace TerminalEmulator
             if (CursorState.CurrentColumn > 0)
             {
                 CursorState.CurrentColumn--;
-
-                //if (Buffer.Count > TopRow + CursorState.CurrentRow)
-                //{
-                //    var line = Buffer[TopRow + CursorState.CurrentRow];
-                //    if (line != null && line.Count > CursorState.CurrentColumn)
-                //        line.RemoveAt(CursorState.CurrentColumn);
-                //}
 
                 InvalidateView = true;
             }
@@ -295,8 +299,28 @@ namespace TerminalEmulator
 
             CursorState.CurrentColumn = column - 1;
             CursorState.CurrentRow = row - 1 + (CursorState.OriginMode ? CursorState.ScrollTop : 0);
+            if (CursorState.ScrollBottom > -1 && CursorState.CurrentRow > CursorState.ScrollBottom)
+                CursorState.CurrentRow = CursorState.ScrollBottom;
 
             InvalidateView = true;
+        }
+
+        public override void InsertBlanks(int count)
+        {
+            LogExtreme("InsertBlank()");
+
+            while (Buffer.Count <= (TopRow + CursorState.CurrentRow))
+                Buffer.Add(new TerminalLine());
+
+            var line = Buffer[TopRow + CursorState.CurrentRow];
+            while (line.Count < CursorState.CurrentColumn)
+                line.Add(new TerminalCharacter());
+
+            while((count--) > 0)
+                line.Insert(CursorState.CurrentColumn, new TerminalCharacter());
+
+            while (line.Count > Columns)
+                line.RemoveAt(line.Count - 1);
         }
 
         public override void PutChar(char character)
@@ -315,33 +339,21 @@ namespace TerminalEmulator
                 line.Insert(CursorState.CurrentColumn, new TerminalCharacter());
             }
 
-            SetCharacter(CursorState.CurrentColumn, CursorState.CurrentRow, character, CursorState.Attribute);
-            CursorState.CurrentColumn++;
-
             if (CursorState.WordWrap)
             {
-                var line = Buffer[TopRow + CursorState.CurrentRow];
-                while (line.Count > Columns)
-                    line.RemoveAt(line.Count - 1);
-                //if(line.Count > Columns)
-                //{
-                //    while (Buffer.Count <= (TopRow + CursorState.CurrentRow + 1))
-                //        Buffer.Add(new TerminalLine());
-
-                //    var nextLine = Buffer[TopRow + CursorState.CurrentRow + 1];
-                //    while(line.Count > Columns)
-                //    {
-                //        nextLine.Insert(0, line.Last());
-                //        line.RemoveAt(line.Count - 1);
-                //    }
-                //}
-
                 if (CursorState.CurrentColumn >= Columns)
                 {
                     CursorState.CurrentColumn = 0;
                     NewLine();
                 }
             }
+
+            SetCharacter(CursorState.CurrentColumn, CursorState.CurrentRow, character, CursorState.Attribute);
+            CursorState.CurrentColumn++;
+
+            var lineToClip = Buffer[TopRow + CursorState.CurrentRow];
+            while (lineToClip.Count > Columns)
+                lineToClip.RemoveAt(lineToClip.Count - 1);
 
             InvalidateView = true;
         }
@@ -775,10 +787,12 @@ namespace TerminalEmulator
         public override void EraseAll()
         {
             // TODO : Verify it works with scroll range
-            LogController("Unimplemented: EraseAll()");
+            LogController("Partial: EraseAll()");
             Buffer.Clear();
             SetCursorPosition(1, 1);
             InvalidateView = true;
+            Columns = VisibleColumns;
+            Rows = VisibleRows;
         }
 
         public override void DeleteCharacter(int count)
@@ -801,8 +815,8 @@ namespace TerminalEmulator
 
         public override void Enable132ColumnMode(bool enable)
         {
-            // TODO : Consider removeing column setting and instead make host resize the terminal
             LogController("Enable132ColumnMode(enable:" + enable.ToString() + ")");
+            EraseAll();
             Columns = enable ? 132 : 80;
         }
 
@@ -823,6 +837,7 @@ namespace TerminalEmulator
         {
             LogController("EnableOriginMode(enable:" + enable.ToString() + ")");
             CursorState.OriginMode = enable;
+            SetCursorPosition(0, 0);
         }
 
         public override void EnableWrapAroundMode(bool enable)
@@ -854,6 +869,16 @@ namespace TerminalEmulator
         {
             LogController("SendDeviceAttributes()");
             SendData.Invoke(this, new SendDataEventArgs { Data = VT102DeviceAttributes });
+        }
+
+        public override void SetLatin1()
+        {
+            LogController("Unimplemented: SetLatin1()");
+        }
+
+        public override void SetUTF8()
+        {
+            LogController("Unimplemented: SetUTF8()");
         }
 
         public void ResizeView(int columns, int rows)
@@ -890,6 +915,7 @@ namespace TerminalEmulator
             character.Attribute = attribute.Clone();
         }
 
+        bool resumingStarvedBuffer = false;
         public bool Consume(byte[] data)
         {
             stream.Add(data);
@@ -899,15 +925,37 @@ namespace TerminalEmulator
             {
                 try
                 {
+                    if (Debugging && resumingStarvedBuffer)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Resuming from starved buffer [" + Encoding.UTF8.GetString(stream.Buffer).Replace("\u001B", "<esc>") + "]");
+                        resumingStarvedBuffer = false;
+                    }
+
                     var sequence = TerminalSequenceReader.ConsumeNextSequence(stream);
+
+                    // Handle poorly injected sequences
+                    if(sequence.ProcessFirst != null)
+                    {
+                        foreach (var item in sequence.ProcessFirst)
+                        {
+                            if (SequenceDebugging)
+                                System.Diagnostics.Debug.WriteLine(item.ToString());
+
+                            XTermSequenceHandlers.ProcessSequence(item, this);
+                        }
+                    }
+
+                    if (SequenceDebugging)
+                        System.Diagnostics.Debug.WriteLine(sequence.ToString());
                     XTermSequenceHandlers.ProcessSequence(sequence, this);
                 }
                 catch (IndexOutOfRangeException)
                 {
+                    resumingStarvedBuffer = true;
                     stream.PopAllStates();
                     break;
                 }
-                catch (ArgumentException)
+                catch (ArgumentException e)
                 {
                     // We've reached an invalid state of the stream.
                     stream.ReadRaw();

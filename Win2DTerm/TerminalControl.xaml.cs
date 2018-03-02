@@ -121,6 +121,7 @@ namespace Win2DTerm
             }
         }
 
+        bool ViewDebugging = false;
         private void OnCanvasDraw(CanvasControl sender, CanvasDrawEventArgs args)
         {
             CanvasDrawingSession drawingSession = args.DrawingSession;
@@ -129,15 +130,6 @@ namespace Win2DTerm
                 new CanvasTextFormat
                 {
                     FontSize = Convert.ToSingle(canvas.FontSize),
-                    FontFamily = canvas.FontFamily.Source,
-                    FontWeight = canvas.FontWeight,
-                    WordWrapping = CanvasWordWrapping.NoWrap
-                };
-
-            CanvasTextFormat lineNumberFormat =
-                new CanvasTextFormat
-                {
-                    FontSize = Convert.ToSingle(canvas.FontSize/2),
                     FontFamily = canvas.FontFamily.Source,
                     FontWeight = canvas.FontWeight,
                     WordWrapping = CanvasWordWrapping.NoWrap
@@ -217,12 +209,30 @@ namespace Win2DTerm
                 drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute));
             }
 
-            //for(var i=0; i<Rows; i++)
-            //{
-            //    string s = i.ToString();
-            //    var textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
-            //    drawingSession.DrawTextLayout(textLayout, 0, (float)i * (float)CharacterHeight, Colors.Yellow);
-            //}
+            if (ViewDebugging)
+            {
+                CanvasTextFormat lineNumberFormat =
+                    new CanvasTextFormat
+                    {
+                        FontSize = Convert.ToSingle(canvas.FontSize / 2),
+                        FontFamily = canvas.FontFamily.Source,
+                        FontWeight = canvas.FontWeight,
+                        WordWrapping = CanvasWordWrapping.NoWrap
+                    };
+
+                for (var i = 0; i < Rows; i++)
+                {
+                    string s = i.ToString();
+                    var textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
+                    float y = (float)i * (float)CharacterHeight;
+                    drawingSession.DrawLine(0, y, (float)canvas.RenderSize.Width, y, Colors.Beige);
+                    drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * s.Length)), y, Colors.Yellow);
+
+                    s = (i + 1).ToString();
+                    textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
+                    drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * (s.Length + 3))), y, Colors.Green);
+                }
+            }
         }
 
         private static Color[] AttributeColors =
@@ -328,8 +338,8 @@ namespace Win2DTerm
             if (!Connected)
                 return;
 
-            var controlPressed = (Window.Current.CoreWindow.GetKeyState(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down));
-            var shiftPressed = (Window.Current.CoreWindow.GetKeyState(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down));
+            var controlPressed = (Window.Current.CoreWindow.GetKeyState(Windows.System.VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down));
+            var shiftPressed = (Window.Current.CoreWindow.GetKeyState(Windows.System.VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down));
 
             switch(e.Key)
             {
@@ -343,6 +353,15 @@ namespace Win2DTerm
 
             if (controlPressed && e.Key == Windows.System.VirtualKey.F12)
                 Model.Debugging = !Model.Debugging;
+
+            if (controlPressed && e.Key == Windows.System.VirtualKey.F10)
+                Model.SequenceDebugging = !Model.SequenceDebugging;
+
+            if (controlPressed && e.Key == Windows.System.VirtualKey.F11)
+            {
+                ViewDebugging = !ViewDebugging;
+                canvas.Invalidate();
+            }
 
             var code = Model.GetKeySequence((controlPressed ? "Ctrl+" : "") + (shiftPressed ? "Shift+" : "") + e.Key.ToString());
             if(code != null)

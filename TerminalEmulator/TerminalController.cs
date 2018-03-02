@@ -31,7 +31,9 @@
         public abstract void UseHighlightMouseTracking(bool enable);
         public abstract void UseCellMotionMouseTracking(bool enable);
         public abstract void SetCharacterSet(ECharacterSet characterSet);
+        public abstract void VerticalTab();
         public abstract void EnableSgrMouseMode(bool enable);
+        public abstract void FormFeed();
         public abstract void SaveEnableNormalBuffer();
         public abstract void SaveUseHighlightMouseTracking();
         public abstract void SaveUseCellMotionMouseTracking();
@@ -66,5 +68,8 @@
         public abstract void EnableReverseWrapAroundMode(bool enable);
         public abstract void ReverseIndex();
         public abstract void SetCharacterSize(ECharacterSize size);
+        public abstract void SetLatin1();
+        public abstract void SetUTF8();
+        public abstract void InsertBlanks(int count);
     }
 }

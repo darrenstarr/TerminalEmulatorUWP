@@ -17,8 +17,9 @@ namespace TerminalEmulator.StreamParser
 
             int currentParameter = -1;
             List<int> Parameters = new List<int>();
+            List<TerminalSequence> ProcesFirst = new List<TerminalSequence>();
 
-            while (!stream.AtEnd)
+            while (true)
             {
                 var next = stream.Read();
 
@@ -61,6 +62,16 @@ namespace TerminalEmulator.StreamParser
 
                     modifier = next;
                 }
+                else if (next == '\b' || next == '\r' || next == '\u000B')
+                {
+                    // Trash chars that have to be processed before this sequence
+                    ProcesFirst.Add(
+                        new CharacterSequence
+                        {
+                            Character = next
+                        }
+                    );
+                }
                 else
                 {
                     if (currentParameter != -1)
@@ -75,7 +86,8 @@ namespace TerminalEmulator.StreamParser
                         IsQuery = isQuery,
                         IsSend = isSend,
                         IsBang = isBang,
-                        Command = (modifier.HasValue ? modifier.Value.ToString() : "") + next.ToString()
+                        Command = (modifier.HasValue ? modifier.Value.ToString() : "") + next.ToString(),
+                        ProcessFirst = ProcesFirst.Count > 0 ? ProcesFirst : null
                     };
 
                     stream.Commit();
@@ -85,9 +97,6 @@ namespace TerminalEmulator.StreamParser
                     return csi;
                 }
             }
-
-            stream.PopState();
-            return null;
         }
 
         private static TerminalSequence ConsumeOSC(TerminalStream stream)
@@ -241,6 +250,22 @@ namespace TerminalEmulator.StreamParser
             return characterSize;
         }
 
+        private static TerminalSequence ConsumeUnicode(TerminalStream stream)
+        {
+            var next = stream.Read();
+
+            var unicode = new UnicodeSequence
+            {
+                Command = next.ToString()
+            };
+
+            stream.Commit();
+
+            //System.Diagnostics.Debug.WriteLine(unicode.ToString());
+
+            return unicode;
+        }
+
         private static TerminalSequence ConsumeCharacterSet(char set, TerminalStream stream)
         {
             var next = stream.Read();
@@ -358,6 +383,9 @@ namespace TerminalEmulator.StreamParser
 
                 case ' ':
                     return ConsumeCompliance(stream);
+
+                case '%':
+                    return ConsumeUnicode(stream);
 
                 case '(':
                 case ')':

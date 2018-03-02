@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using TerminalEmulator.StreamParser;
 
 namespace TerminalEmulator
@@ -18,6 +16,7 @@ namespace TerminalEmulator
             CharacterSet,   // Character set
             Escape,
             CharacterSize,
+            Unicode
         }
 
         public string Description { get; set; }

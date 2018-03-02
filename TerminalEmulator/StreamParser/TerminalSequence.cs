@@ -10,6 +10,7 @@ namespace TerminalEmulator.StreamParser
         public bool IsSend { get; set; }
         public bool IsBang { get; set; }
         public string Command { get; set; }
+        public List<TerminalSequence> ProcessFirst { get; set; }
 
         public override string ToString()
         {
@@ -22,6 +23,7 @@ namespace TerminalEmulator.StreamParser
                     "[" + string.Join(",", Parameters.Select(x => x.ToString())) + "]" : ""
                 ) +
                 "'" + Command + "'" +
+                "(" + string.Join(".",Command.Select(x => ((int)x).ToString("X2"))) + ")" + 
                 ")";
         }
     }
