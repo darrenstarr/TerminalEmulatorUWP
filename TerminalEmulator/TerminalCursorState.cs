@@ -9,6 +9,9 @@ namespace TerminalEmulator
         public int CurrentRow { get; set; } = 0;
         public bool ApplicationCursorKeysMode { get; set; } = false;
         public TerminalAttribute Attribute { get; set; } = new TerminalAttribute();
+        public bool ShowCursor { get; set; } = true;
+        public bool BlinkingCursor { get; set; } = false;
+
         public List<int> TabStops = new List<int>
         {
             8, 16, 24, 32, 40, 48, 56, 64, 72, 80
@@ -34,7 +37,9 @@ namespace TerminalEmulator
                 ScrollTop = ScrollTop,
                 ScrollBottom = ScrollBottom,
                 OriginMode = OriginMode,
-                InsertMode = InsertMode
+                InsertMode = InsertMode,
+                ShowCursor = ShowCursor,
+                BlinkingCursor = BlinkingCursor
             };
         }
     }

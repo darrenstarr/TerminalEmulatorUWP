@@ -143,6 +143,16 @@ namespace TerminalEmulator
             },
             new SequenceHandler
             {
+                Description = "Send Device Attributes (Secondary DA).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                Send = true,
+                CsiCommand = "c",
+                ExactParameterCountOrDefault = 1,
+                Param0 = new int [] { 0 },
+                Handler = (sequence, controller) => controller.SendDeviceAttributesSecondary()
+            },
+            new SequenceHandler
+            {
                 Description = "Send Device Attributes (Primary DA).",
                 SequenceType = SequenceHandler.ESequenceType.CSI,
                 CsiCommand = "c",
@@ -273,6 +283,26 @@ namespace TerminalEmulator
                 ExactParameterCount = 1,
                 Param0 = new int [] { 8 },
                 Handler = (sequence, controller) => controller.EnableAutoRepeatKeys(true)
+            },
+            new SequenceHandler
+            {
+                Description = "Start Blinking Cursor (att610).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "h",
+                Query = true,
+                ExactParameterCount = 1,
+                Param0 = new int [] { 12 },
+                Handler = (sequence, controller) => controller.EnableBlinkingCursor(true)
+            },
+            new SequenceHandler
+            {
+                Description = "Show Cursor (DECTCEM).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "h",
+                Query = true,
+                ExactParameterCount = 1,
+                Param0 = new int [] { 25 },
+                Handler = (sequence, controller) => controller.ShowCursor(true)
             },
             new SequenceHandler
             {
@@ -448,6 +478,26 @@ namespace TerminalEmulator
             },
             new SequenceHandler
             {
+                Description = "Stop Blinking Cursor (att610).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "l",
+                Query = true,
+                ExactParameterCount = 1,
+                Param0 = new int [] { 12 },
+                Handler = (sequence, controller) => controller.EnableBlinkingCursor(false)
+            },
+            new SequenceHandler
+            {
+                Description = "Hide Cursor (DECTCEM).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "l",
+                Query = true,
+                ExactParameterCount = 1,
+                Param0 = new int [] { 25 },
+                Handler = (sequence, controller) => controller.ShowCursor(false)
+            },
+            new SequenceHandler
+            {
                 Description = "Disallow 80 -> 132 Mode.",
                 SequenceType = SequenceHandler.ESequenceType.CSI,
                 CsiCommand = "l",
@@ -546,6 +596,24 @@ namespace TerminalEmulator
                             controller.SetCharacterAttribute(parameter);
                     }
                 }
+            },
+            new SequenceHandler
+            {
+                Description = "Device Status Report (DSR). - Status Report.",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "n",
+                ExactParameterCount = 1,
+                Param0 = new int [] { 5 },
+                Handler = (sequence, controller) => controller.DeviceStatusReport()
+            },
+            new SequenceHandler
+            {
+                Description = "Device Status Report (DSR). - Report Cursor Position (CPR)",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "n",
+                ExactParameterCount = 1,
+                Param0 = new int [] { 6 },
+                Handler = (sequence, controller) => controller.ReportCursorPosition()
             },
             new SequenceHandler
             {
@@ -803,11 +871,18 @@ namespace TerminalEmulator
             },
             new SequenceHandler
             {
+                Description = "Insert Ps Line(s) (default = 1) (IL).",
+                SequenceType = SequenceHandler.ESequenceType.CSI,
+                CsiCommand = "L",
+                ExactParameterCountOrDefault = 1,
+                Handler = (sequence, controller) => controller.InsertLines((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0])
+            },
+            new SequenceHandler
+            {
                 Description = "Delete Ps Line(s) (default = 1) (DL).",
                 SequenceType = SequenceHandler.ESequenceType.CSI,
                 CsiCommand = "M",
                 ExactParameterCountOrDefault = 1,
-                Param0 = new int [] { 0 },
                 Handler = (sequence, controller) => controller.DeleteLines((sequence.Parameters == null || sequence.Parameters.Count == 0) ? 1 : sequence.Parameters[0])
             },
             new SequenceHandler

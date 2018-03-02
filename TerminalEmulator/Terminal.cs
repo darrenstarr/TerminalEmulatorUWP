@@ -73,7 +73,7 @@ namespace TerminalEmulator
         public string GetVisibleChars(int x, int y, int count)
         {
             string result = "";
-            for(var i=0; i<count; i++)
+            for (var i = 0; i < count; i++)
                 result += GetVisibleChar(x + i, y);
 
             return result;
@@ -113,7 +113,7 @@ namespace TerminalEmulator
 
         private void Log(string message)
         {
-            if(Debugging)
+            if (Debugging)
                 System.Diagnostics.Debug.WriteLine("Terminal: " + message);
         }
 
@@ -202,7 +202,7 @@ namespace TerminalEmulator
 
             if (CursorState.ScrollBottom == -1 && CursorState.CurrentRow >= VisibleRows)
             {
-                LogController("Scroll all (before:" + TopRow.ToString() + ",after:" + (TopRow+1).ToString() + ")");
+                LogController("Scroll all (before:" + TopRow.ToString() + ",after:" + (TopRow + 1).ToString() + ")");
                 TopRow++;
                 CursorState.CurrentRow--;
             }
@@ -238,7 +238,7 @@ namespace TerminalEmulator
             LogController("ReverseIndex()");
 
             CursorState.CurrentRow--;
-            if(CursorState.CurrentRow < CursorState.ScrollTop)
+            if (CursorState.CurrentRow < CursorState.ScrollTop)
             {
                 var scrollBottom = 0;
                 if (CursorState.ScrollBottom == -1)
@@ -316,7 +316,7 @@ namespace TerminalEmulator
             while (line.Count < CursorState.CurrentColumn)
                 line.Add(new TerminalCharacter());
 
-            while((count--) > 0)
+            while ((count--) > 0)
                 line.Insert(CursorState.CurrentColumn, new TerminalCharacter());
 
             while (line.Count > Columns)
@@ -327,7 +327,7 @@ namespace TerminalEmulator
         {
             LogExtreme("PutChar(ch:'" + character + "'=" + ((int)character).ToString() + ")");
 
-            if(CursorState.InsertMode == EInsertReplaceMode.Insert)
+            if (CursorState.InsertMode == EInsertReplaceMode.Insert)
             {
                 while (Buffer.Count <= (TopRow + CursorState.CurrentRow))
                     Buffer.Add(new TerminalLine());
@@ -496,7 +496,7 @@ namespace TerminalEmulator
                 Buffer.Add(new TerminalLine());
             var currentLine = Buffer[CursorState.CurrentRow + TopRow];
 
-            switch(size)
+            switch (size)
             {
                 default:
                 case ECharacterSize.SingleWidthLine:
@@ -784,6 +784,19 @@ namespace TerminalEmulator
             InvalidateView = true;
         }
 
+        public override void InsertLines(int count)
+        {
+            LogController("Unimplemented: InsertLines(count:" + count.ToString() + ")");
+
+            if ((CursorState.CurrentRow + TopRow) >= Buffer.Count)
+                return;
+
+            while((count--) > 0)
+                Buffer.Insert((CursorState.CurrentRow + TopRow), new TerminalLine());
+
+            // TODO : Remove last line of the buffer so that scrolling works
+        }
+
         public override void EraseAll()
         {
             // TODO : Verify it works with scroll range
@@ -833,6 +846,22 @@ namespace TerminalEmulator
             InvalidateView = true;
         }
 
+        public override void EnableBlinkingCursor(bool enable)
+        {
+            LogController("EnableBlinkingCursor(enable:" + enable.ToString() + ")");
+            CursorState.BlinkingCursor = enable;
+
+            InvalidateView = true;
+        }
+
+        public override void ShowCursor(bool show)
+        {
+            LogController("ShowCursor(show:" + show.ToString() + ")");
+            CursorState.ShowCursor = show;
+
+            InvalidateView = true;
+        }
+
         public override void EnableOriginMode(bool enable)
         {
             LogController("EnableOriginMode(enable:" + enable.ToString() + ")");
@@ -862,13 +891,38 @@ namespace TerminalEmulator
         {
             LogController("Unimplemented: EnableReverseWrapAroundMode(enable:" + enable.ToString() + ")");
         }
-        
+
         public static readonly byte[] VT102DeviceAttributes = { 0x1B, (byte)'[', (byte)'?', (byte)'6', (byte)'C' };
 
         public override void SendDeviceAttributes()
         {
             LogController("SendDeviceAttributes()");
             SendData.Invoke(this, new SendDataEventArgs { Data = VT102DeviceAttributes });
+        }
+
+        public static readonly byte[] XTermDeviceAttributesSecondary = { 0x1B, (byte)'[', (byte)'>', (byte)'0', (byte)';', (byte)'1', (byte)'3', (byte)'6', (byte)';', (byte)'0', (byte)'C' };
+
+        public override void SendDeviceAttributesSecondary()
+        {
+            LogController("SendDeviceAttributesSecondary()");
+            SendData.Invoke(this, new SendDataEventArgs { Data = XTermDeviceAttributesSecondary });
+        }
+
+        public static readonly byte[] DsrOk= { 0x1B, (byte)'[', (byte)'0', (byte)'n' };
+
+        public override void DeviceStatusReport()
+        {
+            LogController("DeviceStatusReport()");
+            SendData.Invoke(this, new SendDataEventArgs { Data = DsrOk });
+        }
+
+        public override void ReportCursorPosition()
+        {
+            LogController("ReportCursorPosition()");
+
+            var rcp = "\u001b[" + (CursorState.CurrentRow + 1).ToString() + ";" + (CursorState.CurrentColumn + 1).ToString() + "R";
+
+            SendData.Invoke(this, new SendDataEventArgs { Data = Encoding.UTF8.GetBytes(rcp) });
         }
 
         public override void SetLatin1()

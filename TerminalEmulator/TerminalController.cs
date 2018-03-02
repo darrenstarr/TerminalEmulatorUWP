@@ -54,6 +54,7 @@
         public abstract void DeleteLines(int count);
         public abstract void FullReset();
         public abstract void SendDeviceAttributes();
+        public abstract void SendDeviceAttributesSecondary();
         public abstract void TabSet();
         public abstract void Tab();
         public abstract void ClearTabs();
@@ -71,5 +72,10 @@
         public abstract void SetLatin1();
         public abstract void SetUTF8();
         public abstract void InsertBlanks(int count);
+        public abstract void EnableBlinkingCursor(bool enable);
+        public abstract void ShowCursor(bool show);
+        public abstract void DeviceStatusReport();
+        public abstract void ReportCursorPosition();
+        public abstract void InsertLines(int count);
     }
 }

@@ -198,15 +198,18 @@ namespace Win2DTerm
                 }
                 drawingSession.Transform = defaultTransform;
 
-                var mouseY = Model.TopRow - ViewTop + Model.CursorState.CurrentRow;
-                var cursorRect = new Rect(
-                    Model.CursorState.CurrentColumn * CharacterWidth, mouseY 
-                    * CharacterHeight, 
-                    CharacterWidth + 0.9, 
-                    CharacterHeight + 0.9
-                );
+                if (Model.CursorState.ShowCursor)
+                {
+                    var mouseY = Model.TopRow - ViewTop + Model.CursorState.CurrentRow;
+                    var cursorRect = new Rect(
+                        Model.CursorState.CurrentColumn * CharacterWidth, mouseY
+                        * CharacterHeight,
+                        CharacterWidth + 0.9,
+                        CharacterHeight + 0.9
+                    );
 
-                drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute));
+                    drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute));
+                }
             }
 
             if (ViewDebugging)
