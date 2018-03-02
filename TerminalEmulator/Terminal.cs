@@ -976,74 +976,54 @@ namespace TerminalEmulator
             return Consume(data);
         }
 
-        private static readonly Dictionary<string, string> KeySequences = new Dictionary<string, string>
+        private static byte [] CSI(string command)
         {
-            { "F1", "\u008FP" },
-            { "F2", "\u008FQ" },
-            { "F3", "\u008FR" },
-            { "F4", "\u008FS" },
-            { "F5", "\u001B[15~" },
-            { "F6", "\u001B[17~" },
-            { "F7", "\u001B[18~" },
-            { "F8", "\u001B[19~" },
-            { "F9", "\u001B[20~" },
-            { "F10", "\u001B[21~" },
-            { "F11", "\u001B[23~" },
-            { "F12", "\u001B[24~" },
-            { "Up", "\u001B[A" },
-            { "Down", "\u001B[B" },
-            { "Right", "\u001B[C" },
-            { "Left", "\u001B[D" },
-            { "Escape", "\u001B" },
-            { "Home", "\u001B[1~" },
-            { "End", "\u001B[4~" },
-            { "Insert", "\u001B[2~" },
-            { "Delete", "\u001B[3~" },
-            { "PageUp", "\u001B[5~" },
-            { "PageDown", "\u001B[6~" },
-            { "Ctrl+Tab", "\t" },
-        };
+            return (new byte[] { 0x1B, (byte)'[' }).Concat(Encoding.ASCII.GetBytes(command)).ToArray();
+        }
+        private static byte[] SS3(string command)
+        {
+            return (new byte[] { 0x8F }).Concat(Encoding.ASCII.GetBytes(command)).ToArray();
+        }
+        private static byte[] RAW(char ch)
+        {
+            return new byte[] { (byte)ch };
+        }
 
-        private static readonly Dictionary<string, string> ApplicationModeKeySequences = new Dictionary<string, string>
+        private static readonly Dictionary<string, KeyboardTranslation> KeyTranslations = new Dictionary<string, KeyboardTranslation>
         {
-            { "F1", "\u008FP" },
-            { "F2", "\u008FQ" },
-            { "F3", "\u008FR" },
-            { "F4", "\u008FS" },
-            { "F5", "\u001B[15~" },
-            { "F6", "\u001B[17~" },
-            { "F7", "\u001B[18~" },
-            { "F8", "\u001B[19~" },
-            { "F9", "\u001B[20~" },
-            { "F10", "\u001B[21~" },
-            { "F11", "\u001B[23~" },
-            { "F12", "\u001B[24~" },
-            { "Up", "\u001BOA" },
-            { "Down", "\u001BOB" },
-            { "Right", "\u001BOC" },
-            { "Left", "\u001BOD" },
-            { "Escape", "\u001B" },
-            { "Home", "\u001B[1~" },
-            { "End", "\u001B[4~" },
-            { "Insert", "\u001B[2~" },
-            { "Delete", "\u001B[3~" },
-            { "PageUp", "\u001B[5~" },
-            { "PageDown", "\u001B[6~" },
-            { "Ctrl+Tab", "\t" },
+            { "Ctrl+Tab",       new KeyboardTranslation { NormalMode = RAW('\t'),   ApplicationMode = RAW('\t')   } },
+            { "ESC",            new KeyboardTranslation { NormalMode = RAW('\x1B'), ApplicationMode = RAW('\x1B') } },
+
+            { "F1",             new KeyboardTranslation { NormalMode = SS3("P"),    ApplicationMode = SS3("P")    } },
+            { "F2",             new KeyboardTranslation { NormalMode = SS3("Q"),    ApplicationMode = SS3("Q")    } },
+            { "F3",             new KeyboardTranslation { NormalMode = SS3("R"),    ApplicationMode = SS3("R")    } },
+            { "F4",             new KeyboardTranslation { NormalMode = SS3("S"),    ApplicationMode = SS3("S")    } },
+            { "F5",             new KeyboardTranslation { NormalMode = CSI("15~"),  ApplicationMode = CSI("15~")  } },
+            { "F6",             new KeyboardTranslation { NormalMode = CSI("17~"),  ApplicationMode = CSI("17~")  } },
+            { "F7",             new KeyboardTranslation { NormalMode = CSI("18~"),  ApplicationMode = CSI("18~")  } },
+            { "F8",             new KeyboardTranslation { NormalMode = CSI("19~"),  ApplicationMode = CSI("19~")  } },
+            { "F9",             new KeyboardTranslation { NormalMode = CSI("20~"),  ApplicationMode = CSI("20~")  } },
+            { "F10",            new KeyboardTranslation { NormalMode = CSI("21~"),  ApplicationMode = CSI("21~")  } },
+            { "F11",            new KeyboardTranslation { NormalMode = CSI("23~"),  ApplicationMode = CSI("23~")  } },
+            { "F12",            new KeyboardTranslation { NormalMode = CSI("24~"),  ApplicationMode = CSI("24~")  } },
+
+            { "Up",             new KeyboardTranslation { NormalMode = CSI("A"),    ApplicationMode = CSI("OA")    } },
+            { "Down",           new KeyboardTranslation { NormalMode = CSI("B"),    ApplicationMode = CSI("OB")    } },
+            { "Right",          new KeyboardTranslation { NormalMode = CSI("C"),    ApplicationMode = CSI("OC")    } },
+            { "Left",           new KeyboardTranslation { NormalMode = CSI("D"),    ApplicationMode = CSI("OD")    } },
+
+            { "Home",           new KeyboardTranslation { NormalMode = CSI("1~"),   ApplicationMode = CSI("1~")    } },
+            { "Insert",         new KeyboardTranslation { NormalMode = CSI("2~"),   ApplicationMode = CSI("2~")    } },
+            { "Delete",         new KeyboardTranslation { NormalMode = CSI("3~"),   ApplicationMode = CSI("3~")    } },
+            { "End",            new KeyboardTranslation { NormalMode = CSI("4~"),   ApplicationMode = CSI("4~")    } },
+            { "PageUp",         new KeyboardTranslation { NormalMode = CSI("5~"),   ApplicationMode = CSI("5~")    } },
+            { "PageDown",       new KeyboardTranslation { NormalMode = CSI("6~"),   ApplicationMode = CSI("6~")    } },
         };
 
         public byte [] GetKeySequence(string key)
         {
-            if (CursorState.ApplicationCursorKeysMode)
-            {
-                if (ApplicationModeKeySequences.TryGetValue(key, out string code))
-                    return code.Select(x => (byte)x).ToArray();
-            }
-            else
-            {
-                if (KeySequences.TryGetValue(key, out string code))
-                    return Encoding.ASCII.GetBytes(code);
-            }
+            if(KeyTranslations.TryGetValue(key, out KeyboardTranslation translation))
+                return CursorState.ApplicationCursorKeysMode ? translation.ApplicationMode : translation.NormalMode;
 
             return null;
         }
