@@ -58,6 +58,10 @@ namespace TerminalEmulator
 
         public EventHandler<SendDataEventArgs> SendData;
 
+        public bool HighlightMouseTracking { get; set; }
+        public bool CellMotionMouseTracking { get; set; }
+        public bool SgrMouseMode { get; set; }
+
         public char GetVisibleChar(int x, int y)
         {
             if ((TopRow + y) >= Buffer.Count)
@@ -73,6 +77,7 @@ namespace TerminalEmulator
         public string GetVisibleChars(int x, int y, int count)
         {
             string result = "";
+
             for (var i = 0; i < count; i++)
                 result += GetVisibleChar(x + i, y);
 
@@ -82,24 +87,70 @@ namespace TerminalEmulator
         public string GetScreenText()
         {
             string result = "";
+
             for (var y = 0; y < Rows; y++)
             {
                 for (var x = 0; x < Columns; x++)
                     result += GetVisibleChar(x, y);
+
                 if (y < (Rows - 1))
                     result += '\n';
             }
+
+            return result;
+        }
+
+        public string GetText(int startColumn, int startRow, int endColumn, int endRow)
+        {
+            if (startRow > endRow || (startRow == endRow && startColumn > endColumn))
+            {
+                var holder = startColumn;
+                startColumn = endColumn;
+                endColumn = holder;
+
+                holder = startRow;
+                startRow = endRow;
+                endRow = holder;
+            }
+
+            string result = "";
+
+            if (startRow >= Buffer.Count)
+                return result;
+
+            var line = Buffer[startRow];
+
+            if (startRow == endRow)
+            {
+                for (int i = startColumn; i <= endColumn && i < line.Count; i++)
+                    result += line[i].Char;
+
+                return result;
+            }
+
+            for (int i = startColumn; i < line.Count; i++)
+                result += line[i].Char;
+
+            for (int y=startRow + 1; y < endRow; y++)
+            {
+                result += '\n';
+
+                line = Buffer[y];
+                for (int i = 0; i < line.Count; i++)
+                    result += line[i].Char;
+            }
+
+            result += '\n';
+
+            line = Buffer[endRow];
+            for (int i = 0; i <= endColumn && i < line.Count; i++)
+                result += line[i].Char;
+
             return result;
         }
 
         public override void FullReset()
         {
-            //alternativeBuffer = new TerminalBuffer();
-            //alternativeBufferTopRow = 0;
-
-            //normalBuffer = new TerminalBuffer();
-            //normalBufferTopRow = 0;
-
             alternativeBufferTopRow = alternativeBuffer.Count;
             normalBufferTopRow = normalBuffer.Count;
 
@@ -570,16 +621,22 @@ namespace TerminalEmulator
         public override void UseHighlightMouseTracking(bool enable)
         {
             LogController("Unimplemented: UseHighlightMouseTracking(enable:" + enable.ToString() + ")");
+            HighlightMouseTracking = enable;
+            InvalidateView = true;
         }
 
         public override void UseCellMotionMouseTracking(bool enable)
         {
             LogController("Unimplemented: UseCellMotionMouseTracking(enable:" + enable.ToString() + ")");
+            CellMotionMouseTracking = enable;
+            InvalidateView = true;
         }
 
         public override void EnableSgrMouseMode(bool enable)
         {
             LogController("Unimplemented: EnableSgrMouseMode(enable:" + enable.ToString() + ")");
+            SgrMouseMode = enable;
+            InvalidateView = true;
         }
 
         public override void SaveEnableNormalBuffer()
@@ -1015,7 +1072,7 @@ namespace TerminalEmulator
                     stream.PopAllStates();
                     break;
                 }
-                catch (ArgumentException e)
+                catch (ArgumentException)
                 {
                     // We've reached an invalid state of the stream.
                     stream.ReadRaw();

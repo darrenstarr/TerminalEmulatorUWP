@@ -5,8 +5,10 @@ using Renci.SshNet;
 using Renci.SshNet.Common;
 using System;
 using System.Numerics;
+using System.Text;
 using System.Threading.Tasks;
 using TerminalEmulator;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.UI;
 using Windows.UI.Core;
@@ -137,7 +139,7 @@ namespace Win2DTerm
 
             ProcessTextFormat(drawingSession, format);
 
-            drawingSession.FillRectangle(new Rect(0, 0, canvas.RenderSize.Width, canvas.RenderSize.Height), GetBackgroundColor(Model.CursorState.Attribute));
+            drawingSession.FillRectangle(new Rect(0, 0, canvas.RenderSize.Width, canvas.RenderSize.Height), GetBackgroundColor(Model.CursorState.Attribute, false));
 
             lock (Model)
             {
@@ -157,17 +159,18 @@ namespace Win2DTerm
 
                     foreach (var character in line)
                     {
+                        bool selected = IsSelected(column, row);
 
                         var rect = new Rect(
-                            (double)column * CharacterWidth,
-                            (double)((row - (line.DoubleHeightBottom ? 1 : 0)) * CharacterHeight  + verticalOffset) * (line.DoubleHeightBottom | line.DoubleHeightTop ? 0.5 : 1.0),
+                            column * CharacterWidth,
+                            ((row - (line.DoubleHeightBottom ? 1 : 0)) * CharacterHeight + verticalOffset) * (line.DoubleHeightBottom | line.DoubleHeightTop ? 0.5 : 1.0),
                             CharacterWidth + 0.9, 
                             CharacterHeight + 0.9
                         );
 
                         var textLayout = new CanvasTextLayout(drawingSession, character.Char.ToString(), format, 0.0f, 0.0f);
-                        var backgroundColor = GetBackgroundColor(character.Attribute);
-                        var foregroundColor = GetForegroundColor(character.Attribute);
+                        var backgroundColor = GetBackgroundColor(character.Attribute, selected);
+                        var foregroundColor = GetForegroundColor(character.Attribute, selected);
                         drawingSession.FillRectangle(rect, backgroundColor);
 
                         drawingSession.DrawTextLayout(
@@ -200,41 +203,44 @@ namespace Win2DTerm
 
                 if (Model.CursorState.ShowCursor)
                 {
-                    var mouseY = Model.TopRow - ViewTop + Model.CursorState.CurrentRow;
+                    var cursorY = Model.TopRow - ViewTop + Model.CursorState.CurrentRow;
                     var cursorRect = new Rect(
-                        Model.CursorState.CurrentColumn * CharacterWidth, mouseY
-                        * CharacterHeight,
+                        Model.CursorState.CurrentColumn * CharacterWidth,
+                        cursorY * CharacterHeight,
                         CharacterWidth + 0.9,
                         CharacterHeight + 0.9
                     );
 
-                    drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute));
+                    drawingSession.DrawRectangle(cursorRect, GetForegroundColor(Model.CursorState.Attribute, false));
                 }
             }
 
             if (ViewDebugging)
+                AnnotateView(drawingSession);
+        }
+
+        private void AnnotateView(CanvasDrawingSession drawingSession)
+        {
+            CanvasTextFormat lineNumberFormat =
+                                new CanvasTextFormat
+                                {
+                                    FontSize = Convert.ToSingle(canvas.FontSize / 2),
+                                    FontFamily = canvas.FontFamily.Source,
+                                    FontWeight = canvas.FontWeight,
+                                    WordWrapping = CanvasWordWrapping.NoWrap
+                                };
+
+            for (var i = 0; i < Rows; i++)
             {
-                CanvasTextFormat lineNumberFormat =
-                    new CanvasTextFormat
-                    {
-                        FontSize = Convert.ToSingle(canvas.FontSize / 2),
-                        FontFamily = canvas.FontFamily.Source,
-                        FontWeight = canvas.FontWeight,
-                        WordWrapping = CanvasWordWrapping.NoWrap
-                    };
+                string s = i.ToString();
+                var textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
+                float y = i * (float)CharacterHeight;
+                drawingSession.DrawLine(0, y, (float)canvas.RenderSize.Width, y, Colors.Beige);
+                drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * s.Length)), y, Colors.Yellow);
 
-                for (var i = 0; i < Rows; i++)
-                {
-                    string s = i.ToString();
-                    var textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
-                    float y = (float)i * (float)CharacterHeight;
-                    drawingSession.DrawLine(0, y, (float)canvas.RenderSize.Width, y, Colors.Beige);
-                    drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * s.Length)), y, Colors.Yellow);
-
-                    s = (i + 1).ToString();
-                    textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
-                    drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * (s.Length + 3))), y, Colors.Green);
-                }
+                s = (i + 1).ToString();
+                textLayout = new CanvasTextLayout(drawingSession, s.ToString(), lineNumberFormat, 0.0f, 0.0f);
+                drawingSession.DrawTextLayout(textLayout, (float)(canvas.RenderSize.Width - (CharacterWidth / 2 * (s.Length + 3))), y, Colors.Green);
             }
         }
 
@@ -278,9 +284,9 @@ namespace Win2DTerm
             new SolidColorBrush(AttributeColors[15]),
         };
 
-        private Color GetBackgroundColor(TerminalAttribute attribute)
+        private Color GetBackgroundColor(TerminalAttribute attribute, bool invert)
         {
-            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse;
+            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse ^ invert;
 
             if (flip)
             {
@@ -293,15 +299,16 @@ namespace Win2DTerm
             return AttributeColors[(int)attribute.BackgroundColor];
         }
 
-        private Color GetForegroundColor(TerminalAttribute attribute)
+        private Color GetForegroundColor(TerminalAttribute attribute, bool invert)
         {
-            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse;
+            var flip = Model.CursorState.ReverseVideoMode ^ attribute.Reverse ^ invert;
 
             if (flip)
                 return AttributeColors[(int)attribute.BackgroundColor];
 
             if (attribute.Bright)
                 return AttributeColors[(int)attribute.ForegroundColor + 8];
+
             return AttributeColors[(int)attribute.ForegroundColor];
         }
 
@@ -323,7 +330,7 @@ namespace Win2DTerm
                 ResizeTerminal();
 
                 if(_stream != null && _stream.CanWrite)
-                    _stream.SendWindowChangeRequest((uint)columns, (uint)rows, (uint)800, (uint)600);
+                    _stream.SendWindowChangeRequest((uint)columns, (uint)rows, 800, 600);
             }
         }
 
@@ -336,7 +343,7 @@ namespace Win2DTerm
             Model.ResizeView(Columns, Rows);
         }
 
-        private void Canvas_KeyDown(object sender, KeyRoutedEventArgs e)
+        private void TerminalKeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (!Connected)
                 return;
@@ -387,22 +394,22 @@ namespace Win2DTerm
             //System.Diagnostics.Debug.WriteLine(e.Key.ToString() + ",S" + (shiftPressed ? "1" : "0") + ",C" + (controlPressed ? "1" : "0"));
         }
 
-        private void Grid_Tapped(object sender, TappedRoutedEventArgs e)
+        private void TerminalTapped(object sender, TappedRoutedEventArgs e)
         {
             this.Focus(FocusState.Pointer);
         }
 
-        private void UserControl_GotFocus(object sender, RoutedEventArgs e)
+        private void TerminalGotFocus(object sender, RoutedEventArgs e)
         {
             Window.Current.CoreWindow.CharacterReceived += CoreWindow_CharacterReceived;
         }
 
-        private void UserControl_LostFocus(object sender, RoutedEventArgs e)
+        private void TerminalLostFocus(object sender, RoutedEventArgs e)
         {
             Window.Current.CoreWindow.CharacterReceived -= CoreWindow_CharacterReceived;
         }
 
-        private void WheelChanged(object sender, PointerRoutedEventArgs e)
+        private void TerminalWheelChanged(object sender, PointerRoutedEventArgs e)
         {
             var pointer = e.GetCurrentPoint(canvas);
 
@@ -416,6 +423,198 @@ namespace Win2DTerm
 
             if (oldViewTop != ViewTop)
                 canvas.Invalidate();
+        }
+
+        int MouseOverColumn = -1;
+        int MouseOverRow = -1;
+        int SelectStartColumn = -1;
+        int SelectStartRow = -1;
+        int SelectEndColumn = -1;
+        int SelectEndRow = -1;
+        bool Selecting = false;
+
+        private bool IsSelected(int column, int row)
+        {
+            var startColumn = SelectStartColumn;
+            var startRow = SelectStartRow;
+            var endColumn = SelectEndColumn;
+            var endRow = SelectEndRow;
+
+            if(startRow > endRow || (startRow == endRow && startColumn > endColumn))
+            {
+                startColumn = SelectEndColumn;
+                startRow = SelectEndRow;
+                endColumn = SelectStartColumn;
+                endRow = SelectStartRow;
+            }
+
+            return
+                (
+                    row == startRow &&
+                    startRow == endRow &&
+                    column >= startColumn &&
+                    column <= endColumn
+                ) ||
+                (
+                    startRow != endRow &&
+                    (
+                        (row == startRow && column >= startColumn) ||
+                        (row > startRow && row < endRow) ||
+                        (row == endRow && column <= endColumn)
+                    )
+                );
+        }
+
+        private void TerminalPointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            var pointer = e.GetCurrentPoint(canvas);
+
+            int overColumn = (int)Math.Floor(pointer.Position.X / CharacterWidth);
+            if (overColumn >= Columns)
+                overColumn = Columns - 1;
+
+            int overRow = (int)Math.Floor(pointer.Position.Y / CharacterHeight);
+            if (overRow >= Rows)
+                overRow = Rows - 1;
+
+            if (overColumn == MouseOverColumn && overRow == MouseOverRow)
+                return;
+
+            MouseOverColumn = overColumn;
+            MouseOverRow = overRow;
+
+            if (pointer.Properties.IsLeftButtonPressed)
+            {
+                int newSelectStartColumn = -1;
+                int newSelectStartRow = -1;
+                int newSelectEndColumn = -1;
+                int newSelectEndRow = -1;
+                if (MousePressedAtColumn != MouseOverColumn || MousePressedAtRow != (ViewTop + MouseOverRow))
+                {
+                    if (MousePressedAtRow < (ViewTop + MouseOverRow) || (MousePressedAtRow == (ViewTop + MouseOverRow) && MousePressedAtColumn  <= MouseOverColumn))
+                    {
+                        newSelectStartColumn = MousePressedAtColumn;
+                        newSelectStartRow = MousePressedAtRow;
+                        newSelectEndColumn = MouseOverColumn - 1;
+                        newSelectEndRow = (ViewTop + MouseOverRow);
+                    }
+                    else
+                    {
+                        newSelectStartColumn = MousePressedAtColumn;
+                        newSelectStartRow = MousePressedAtRow;
+                        newSelectEndColumn = MouseOverColumn;
+                        newSelectEndRow = (ViewTop + MouseOverRow);
+                    }
+
+                    Selecting = true;
+                }
+
+                if(
+                    !(
+                        SelectStartColumn == newSelectStartColumn &&
+                        SelectEndColumn == newSelectEndColumn &&
+                        SelectStartRow == newSelectStartRow &&
+                        SelectEndRow == newSelectEndRow
+                    )
+                )
+                {
+                    SelectStartColumn = newSelectStartColumn;
+                    SelectEndColumn = newSelectEndColumn;
+                    SelectStartRow = newSelectStartRow;
+                    SelectEndRow = newSelectEndRow;
+
+                    //System.Diagnostics.Debug.WriteLine(
+                    //    "Select from (c=" +
+                    //    SelectStartColumn.ToString() + ",r=" + SelectStartRow.ToString() +
+                    //    ") to (c=" +
+                    //    SelectEndColumn.ToString() + ",r=" + SelectEndRow.ToString() +
+                    //    ")"
+                    //);
+                }
+            }
+
+            //System.Diagnostics.Debug.WriteLine("Pointer Moved (c" + MouseOverColumn.ToString() + ",r=" + MouseOverRow.ToString() + ")");
+            canvas.Invalidate();
+        }
+
+        private void TerminalPointerExited(object sender, PointerRoutedEventArgs e)
+        {
+            MouseOverColumn = -1;
+            MouseOverRow = -1;
+
+            //System.Diagnostics.Debug.WriteLine("Pointer Left (c" + MouseOverColumn.ToString() + ",r=" + MouseOverRow.ToString() + ")");
+            canvas.Invalidate();
+        }
+
+        public int MousePressedAtColumn = -1;
+        public int MousePressedAtRow = -1;
+
+        private void TerminalPointerPressed(object sender, PointerRoutedEventArgs e)
+        {
+            var pointer = e.GetCurrentPoint(canvas);
+            if (pointer.Properties.IsLeftButtonPressed)
+            {
+                MousePressedAtColumn = MouseOverColumn;
+                MousePressedAtRow = ViewTop + MouseOverRow;
+            }
+            else if(pointer.Properties.IsRightButtonPressed)
+            {
+                PasteClipboard();
+            }
+        }
+
+        private void TerminalPointerReleased(object sender, PointerRoutedEventArgs e)
+        {
+            var pointer = e.GetCurrentPoint(canvas);
+            if (!pointer.Properties.IsLeftButtonPressed)
+            {
+                if (Selecting)
+                {
+                    MousePressedAtColumn = -1;
+                    MousePressedAtRow = -1;
+
+                    Selecting = false;
+
+                    //System.Diagnostics.Debug.WriteLine("Captured : " + Model.GetText(SelectStartColumn, SelectStartRow, SelectEndColumn, SelectEndRow));
+
+                    var captured = Model.GetText(SelectStartColumn, SelectStartRow, SelectEndColumn, SelectEndRow);
+
+                    var dataPackage = new DataPackage();
+                    dataPackage.SetText(captured);
+                    dataPackage.Properties.EnterpriseId = "Terminal";
+                    Clipboard.SetContent(dataPackage);
+                }
+                else
+                {
+                    SelectStartColumn = -1;
+                    SelectStartRow = -1;
+                    SelectEndColumn = -1;
+                    SelectEndRow = -1;
+                    canvas.Invalidate();
+                }
+            }
+        }
+
+        private void PasteText(string text)
+        {
+            Task.Run(() =>
+            {
+                var buffer = Encoding.UTF8.GetBytes(text);
+                _stream.Write(buffer, 0, buffer.Length);
+                _stream.Flush();
+            });
+        }
+
+        private void PasteClipboard()
+        {
+            var package = Clipboard.GetContent();
+
+            Task.Run(async () =>
+            {
+                string text = await package.GetTextAsync();
+                if (!string.IsNullOrEmpty(text))
+                    PasteText(text);
+            });
         }
     }
 }
