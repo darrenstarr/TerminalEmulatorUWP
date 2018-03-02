@@ -1,11 +1,13 @@
 using System.Linq;
+using TerminalEmulator.VirtualTerminal;
+using TerminalEmulator.XTermParser;
 using Xunit;
 
 namespace TerminalEmulator.Unit.Tests
 {
     public class TerminalUnitTests
     {
-        private void PushToTerminal(Terminal t, string s)
+        private void PushToTerminal(DataConsumer t, string s)
         {
             t.Push(s.Select(x => (byte)x).ToArray());
         }
@@ -13,15 +15,17 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void Backspace()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(200, 100);
-            PushToTerminal(t, "12345\u001b[D\u001b[D\b0");
+            PushToTerminal(d, "12345\u001b[D\u001b[D\b0");
 
             Assert.Equal("12045 ", t.GetVisibleChars(0, 0, 6));
 
-            t = new Terminal();
+            t = new VirtualTerminalController();
             t.ResizeView(200, 100);
-            PushToTerminal(t, "12345\u001b[D\u001b[D\b");
+            PushToTerminal(d, "12345\u001b[D\u001b[D\b");
 
             Assert.Equal("12345 ", t.GetVisibleChars(0, 0, 6));
         }
@@ -29,9 +33,11 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void EraseToStartOfLine()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(200, 100);
-            PushToTerminal(t, "12345\u001b[D\u001b[D\u001b[1K");
+            PushToTerminal(d, "12345\u001b[D\u001b[D\u001b[1K");
 
             Assert.Equal("    5 ", t.GetVisibleChars(0, 0, 6));
         }
@@ -47,7 +53,7 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void ScreenAlignmentTest()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
             t.ResizeView(6, 6);
@@ -65,7 +71,9 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void EraseScreen()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
             t.EraseAll();
@@ -73,7 +81,7 @@ namespace TerminalEmulator.Unit.Tests
             Assert.Equal(ExpectedEraseAll, t.GetScreenText());
 
             t.ScreenAlignmentTest();
-            PushToTerminal(t, "\u001B#8\u001B[2J");
+            PushToTerminal(d, "\u001B#8\u001B[2J");
             Assert.Equal(ExpectedEraseAll, t.GetScreenText());
         }
 
@@ -87,7 +95,9 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void EraseBelow()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
             t.SetCursorPosition(4, 2);
@@ -96,15 +106,15 @@ namespace TerminalEmulator.Unit.Tests
             Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
 
             t.ScreenAlignmentTest();
-            PushToTerminal(t, "\u001B#8\u001B[J");
+            PushToTerminal(d, "\u001B#8\u001B[J");
             Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
 
             t.ScreenAlignmentTest();
-            PushToTerminal(t, "\u001B#8\u001B[;J");
+            PushToTerminal(d, "\u001B#8\u001B[;J");
             Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
 
             t.ScreenAlignmentTest();
-            PushToTerminal(t, "\u001B#8\u001B[0J");
+            PushToTerminal(d, "\u001B#8\u001B[0J");
             Assert.Equal(ExpectedEraseBelow, t.GetScreenText());
         }
 
@@ -118,7 +128,9 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void EraseAbove()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
             t.SetCursorPosition(4, 2);
@@ -127,7 +139,7 @@ namespace TerminalEmulator.Unit.Tests
             Assert.Equal(ExpectedEraseAbove, t.GetScreenText());
 
             t.ScreenAlignmentTest();
-            PushToTerminal(t, "\u001B#8\u001B[1J");
+            PushToTerminal(d, "\u001B#8\u001B[1J");
             Assert.Equal(ExpectedEraseAbove, t.GetScreenText());
         }
 
@@ -141,11 +153,13 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void ScrollFullDown()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
 
-            PushToTerminal(t, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF");
+            PushToTerminal(d, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF");
             Assert.Equal(ExpectedScrollFull, t.GetScreenText());
         }
 
@@ -159,11 +173,13 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void ReverseIndex()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
             t.ScreenAlignmentTest();
 
-            PushToTerminal(t, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF\u001BM\u001BM\u001BM\u001BMGGG");
+            PushToTerminal(d, "AAAAABBBBBCCCCCDDDDDEEEEEFFFF\u001BM\u001BM\u001BM\u001BMGGG");
             Assert.Equal(ExpectedRIND, t.GetScreenText());
         }
 
@@ -177,15 +193,17 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void EightyColumnMode()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
-            PushToTerminal(t, "\u001b[?3l");
+            PushToTerminal(d, "\u001b[?3l");
 
             Assert.Equal(80, t.Columns);
             Assert.Equal(5, t.Rows);
 
             for(var i=0; i<16; i++)
-                PushToTerminal(t, "0123456789");
+                PushToTerminal(d, "0123456789");
 
             Assert.Equal(Expected80ColumnMode, t.GetScreenText());
         }
@@ -200,15 +218,17 @@ namespace TerminalEmulator.Unit.Tests
         [Fact]
         public void OneThirtyTwoColumnMode()
         {
-            var t = new Terminal();
+            var t = new VirtualTerminalController();
+            var d = new DataConsumer(t);
+
             t.ResizeView(5, 5);
-            PushToTerminal(t, "\u001b[?3h");
+            PushToTerminal(d, "\u001b[?3h");
 
             Assert.Equal(132, t.Columns);
             Assert.Equal(5, t.Rows);
 
             for (var i = 0; i < 16; i++)
-                PushToTerminal(t, "0123456789");
+                PushToTerminal(d, "0123456789");
 
             Assert.Equal(Expected132ColumnMode, t.GetScreenText());
         }
