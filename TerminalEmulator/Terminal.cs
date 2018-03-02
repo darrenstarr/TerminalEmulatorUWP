@@ -94,11 +94,14 @@ namespace TerminalEmulator
 
         public override void FullReset()
         {
-            alternativeBuffer = new TerminalBuffer();
-            alternativeBufferTopRow = 0;
+            //alternativeBuffer = new TerminalBuffer();
+            //alternativeBufferTopRow = 0;
 
-            normalBuffer = new TerminalBuffer();
-            normalBufferTopRow = 0;
+            //normalBuffer = new TerminalBuffer();
+            //normalBufferTopRow = 0;
+
+            alternativeBufferTopRow = alternativeBuffer.Count;
+            normalBufferTopRow = normalBuffer.Count;
 
             ActiveBuffer = EActiveBuffer.Normal;
 
@@ -801,11 +804,14 @@ namespace TerminalEmulator
         {
             // TODO : Verify it works with scroll range
             LogController("Partial: EraseAll()");
-            Buffer.Clear();
+
+            TopRow = Buffer.Count;
+
             SetCursorPosition(1, 1);
-            InvalidateView = true;
             Columns = VisibleColumns;
             Rows = VisibleRows;
+
+            InvalidateView = true;
         }
 
         public override void DeleteCharacter(int count)
